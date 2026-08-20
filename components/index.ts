@@ -9,6 +9,8 @@ export * from './Input';
 export * from './IntroScreen';
 export * from './Logo';
 export * from './Mark';
+export * from './onboarding/OnboardingFlow';
+export * from './onboarding/types';
 export * from './ScoreCard';
 export * from './Select';
 export * from './Switch';
