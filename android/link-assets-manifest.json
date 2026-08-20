@@ -1,0 +1,21 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/Barlow-Bold.ttf",
+      "sha1": "c1694b01b285276fd14230bfd00c6704d50a49d2"
+    },
+    {
+      "path": "assets/fonts/Barlow-Regular.ttf",
+      "sha1": "d9301d2a82b5e2a4db2951afb351edf3b1f3f112"
+    },
+    {
+      "path": "assets/fonts/BarlowSemiCondensed-Bold.ttf",
+      "sha1": "d6e7dfaa6353189b32f3c221530341b7c4f5bdc2"
+    },
+    {
+      "path": "assets/fonts/BarlowSemiCondensed-SemiBold.ttf",
+      "sha1": "7f77e06783a9210f5d07d8d077083ebd5b42a168"
+    }
+  ]
+}
