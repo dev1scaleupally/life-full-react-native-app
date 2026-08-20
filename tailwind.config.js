@@ -78,9 +78,15 @@ module.exports = {
         danger: { DEFAULT: '#C24A2F', soft: '#F6D9D1' },
       },
 
+      // RN doesn't reliably map fontWeight -> the right physical file for a
+      // custom font (esp. on iOS), so each weight we actually use is its own
+      // family key pointing at that weight's exact PostScript name (see
+      // assets/fonts/ + react-native.config.js for the linked files).
       fontFamily: {
-        sans: ['Barlow'],
-        condensed: ['Barlow Semi Condensed'],
+        sans: ['Barlow-Regular'], // Body & UI text — "Barlow Book"
+        'sans-bold': ['Barlow-Bold'], // Display & Headings — bold, tight tracking
+        condensed: ['BarlowSemiCondensed-SemiBold'], // Eyebrows — uppercase labels
+        'condensed-bold': ['BarlowSemiCondensed-Bold'], // Stats — condensed numerals
       },
 
       // 12pt hard floor — the audience skews older, legibility beats density.
