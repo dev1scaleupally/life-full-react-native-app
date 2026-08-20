@@ -5,12 +5,9 @@
  * @format
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, Text, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { StatusBar, useColorScheme } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { DesignSystemDemo } from './components/DesignSystemDemo';
 import './global.css';
 
 function App() {
@@ -19,31 +16,9 @@ function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <DesignSystemDemo />
     </SafeAreaProvider>
   );
 }
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <Text className="bg-blue-600 py-3 text-center text-lg font-bold text-white">
-        Tailwind (NativeWind) is working 🎉
-      </Text>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default App;
