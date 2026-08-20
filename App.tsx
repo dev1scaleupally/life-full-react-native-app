@@ -5,18 +5,29 @@
  * @format
  */
 
-import { StatusBar, useColorScheme } from 'react-native';
+import { useState } from 'react';
+import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { DesignSystemDemo } from './components/DesignSystemDemo';
+import { IntroScreen } from './components/IntroScreen';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import './global.css';
 
+// Placeholder flow routing. Swap for a real navigation library (e.g.
+// React Navigation) once this grows past a couple of screens.
+type Screen = 'welcome' | 'intro';
+
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+  const [screen, setScreen] = useState<Screen>('welcome');
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <DesignSystemDemo />
+      {/* Welcome is a dark navy gradient; Intro is light cream. */}
+      <StatusBar barStyle={screen === 'welcome' ? 'light-content' : 'dark-content'} />
+      {screen === 'welcome' ? (
+        <WelcomeScreen onGetStarted={() => setScreen('intro')} />
+      ) : (
+        <IntroScreen onBegin={() => {}} />
+      )}
     </SafeAreaProvider>
   );
 }

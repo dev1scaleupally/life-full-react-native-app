@@ -1,26 +1,30 @@
+import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, type PressableProps } from 'react-native';
 import { BodyText } from './Typography';
 import { usePressed } from './usePressed';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'inverse';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 const containerClasses: Record<ButtonVariant, string> = {
   primary: 'bg-brand',
   secondary: 'border border-border bg-transparent',
   ghost: 'bg-transparent',
+  inverse: 'bg-surface-card',
 };
 
 const containerPressedClasses: Record<ButtonVariant, string> = {
   primary: 'bg-brand-active',
   secondary: 'border border-border bg-surface-sunken',
   ghost: 'bg-surface-sunken',
+  inverse: 'bg-neutral-100',
 };
 
 const textClasses: Record<ButtonVariant, string> = {
   primary: 'text-text-on-brand',
   secondary: 'text-text-heading',
   ghost: 'text-brand',
+  inverse: 'text-text-heading',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -42,6 +46,8 @@ export type ButtonProps = Omit<PressableProps, 'children'> & {
   size?: ButtonSize;
   loading?: boolean;
   children: string;
+  /** Rendered after the label, e.g. a chevron icon. Hidden while loading. */
+  rightIcon?: ReactNode;
   className?: string;
 };
 
@@ -51,6 +57,7 @@ export function Button({
   loading = false,
   disabled,
   children,
+  rightIcon,
   className = '',
   ...rest
 }: ButtonProps) {
@@ -64,7 +71,7 @@ export function Button({
       disabled={isDisabled}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      className={`flex-row items-center justify-center rounded-pill ${
+      className={`flex-row items-center justify-center gap-2 rounded-pill ${
         pressed ? containerPressedClasses[variant] : containerClasses[variant]
       } ${sizeClasses[size]} ${isDisabled ? 'opacity-50' : ''} ${className}`}
       {...rest}
@@ -72,12 +79,15 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={variant === 'primary' ? '#FFFFFF' : '#A2571F'} />
       ) : (
-        <BodyText
-          size={textSizeClasses[size]}
-          className={`font-sans-bold ${textClasses[variant]}`}
-        >
-          {children}
-        </BodyText>
+        <>
+          <BodyText
+            size={textSizeClasses[size]}
+            className={`font-sans-bold ${textClasses[variant]}`}
+          >
+            {children}
+          </BodyText>
+          {rightIcon}
+        </>
       )}
     </Pressable>
   );
