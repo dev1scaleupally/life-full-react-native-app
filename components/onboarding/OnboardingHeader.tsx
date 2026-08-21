@@ -7,9 +7,16 @@ export type OnboardingHeaderProps = {
   step: number;
   total: number;
   onBack: () => void;
+  /** Eyebrow label for the flow this header belongs to. @default 'About you' */
+  label?: string;
 };
 
-export function OnboardingHeader({ step, total, onBack }: OnboardingHeaderProps) {
+export function OnboardingHeader({
+  step,
+  total,
+  onBack,
+  label = 'About you',
+}: OnboardingHeaderProps) {
   const progress = Math.min(1, Math.max(0, step / total));
 
   return (
@@ -23,7 +30,7 @@ export function OnboardingHeader({ step, total, onBack }: OnboardingHeaderProps)
           className="flex-row items-center gap-3"
         >
           <ChevronLeft />
-          <Eyebrow>About you</Eyebrow>
+          <Eyebrow>{label}</Eyebrow>
         </Pressable>
 
         <BodyText size="sm" className="text-text-subtle">
@@ -32,7 +39,10 @@ export function OnboardingHeader({ step, total, onBack }: OnboardingHeaderProps)
       </View>
 
       <View className="mt-3 h-1 overflow-hidden rounded-pill bg-surface-sunken">
-        <View className="h-full rounded-pill bg-brand" style={{ width: `${progress * 100}%` }} />
+        <View
+          className="h-full rounded-pill bg-brand"
+          style={{ width: `${progress * 100}%` }}
+        />
       </View>
     </View>
   );

@@ -28,7 +28,7 @@ export function SelectableRow({ label, selected, onPress, indicator = 'radio' }:
             : 'border-border bg-surface-card'
       }`}
     >
-      <BodyText className={`flex-1 pr-3 ${selected ? 'font-sans-bold text-brand' : 'text-text-body'}`}>
+      <BodyText className={`flex-1 text-base pr-3 ${selected ? 'font-sans-bold text-brand' : 'text-text-body'}`}>
         {label}
       </BodyText>
 

@@ -42,8 +42,8 @@ function IntroRowItem({ row, isLast }: { row: IntroRow; isLast: boolean }) {
         {row.icon}
       </View>
       <View className="flex-1 gap-1">
-        <BodyText className="font-sans-bold text-text-heading">{row.title}</BodyText>
-        <BodyText size="sm" className="text-text-muted">
+        <BodyText className="font-sans-bold text-text-heading text-lg">{row.title}</BodyText>
+        <BodyText size="sm" className="text-text-muted text-base">
           {row.description}
         </BodyText>
       </View>
@@ -66,10 +66,10 @@ export function IntroScreen({ onBegin }: IntroScreenProps) {
         >
           <View className="items-center gap-3">
             <Mark variant="orange" height={44} />
-            <Heading level="h2" className="text-center">
+            <Heading level="h2" className="text-center text-3xl">
               Let's get to know you
             </Heading>
-            <BodyText className="text-center text-text-muted">
+            <BodyText className="text-center text-text-muted text-lg">
               Your answers shape your first session.
             </BodyText>
           </View>
@@ -81,14 +81,14 @@ export function IntroScreen({ onBegin }: IntroScreenProps) {
           </View>
 
           <View className="gap-3">
-            <BodyText size="sm">
+            <BodyText size="xs">
               <Text className="font-sans-bold text-text-heading">
                 What Lifefull does:{' '}
               </Text>
               help you reflect on what matters next and turn it into small
               real-world steps.
             </BodyText>
-            <BodyText size="sm">
+            <BodyText size="xs">  
               <Text className="font-sans-bold text-text-heading">
                 What it doesn't:{' '}
               </Text>

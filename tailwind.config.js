@@ -1,4 +1,4 @@
-/** @type {import('tailwindcss').Config} */
+  /** @type {import('tailwindcss').Config} */
 // Theming pulled 1:1 from tokens/tokens.json (the contract) — keep this file in
 // sync with that source, don't hand-edit values away from it. Light-only: the
 // Lifefull design system defines a single palette, no dark variant.
@@ -53,6 +53,7 @@ module.exports = {
           subtle: '#6E6557',
           inverse: '#FFFFFF',
           link: '#4A7081',
+          secondary: '#2A2620',
           'on-brand': '#FFFFFF',
         },
         surface: {
@@ -96,7 +97,7 @@ module.exports = {
       fontSize: {
         '2xs': '12px', xs: '13px', sm: '15px', base: '16px',
         md: '17px', // Sage's conversational messages only
-        lg: '18px', xl: '22px', '2xl': '28px', '3xl': '36px', '4xl': '48px', '5xl': '60px', '6xl': '76px',
+        lg: '18px', xl: '22px', '2xl': '24px', '3xl': '36px', '4xl': '48px', '5xl': '60px', '6xl': '76px',
       },
       lineHeight: {
         none: '1', tight: '1.12', snug: '1.28', normal: '1.5', relaxed: '1.65',
@@ -115,6 +116,39 @@ module.exports = {
 
       borderRadius: {
         xs: '4px', sm: '8px', md: '12px', lg: '16px', xl: '24px', '2xl': '32px', pill: '999px',
+      },
+
+      // From tokens.json's `shadow` map. NativeWind's shadow plugin reads the alpha
+      // straight off the rgba() color (shadowOpacity is always 1 on its side), and
+      // looks up `elevation` (below) by matching this same value to get Android's
+      // number — keep the two maps' keys in lockstep.
+      boxShadow: {
+        xs: '0px 1px 2px rgba(20, 31, 44, 0.06)',
+        sm: '0px 1px 3px rgba(20, 31, 44, 0.08)',
+        md: '0px 4px 14px rgba(20, 31, 44, 0.09)',
+        lg: '0px 12px 30px rgba(20, 31, 44, 0.12)',
+        xl: '0px 24px 56px rgba(20, 31, 44, 0.16)',
+        brand: '0px 8px 22px rgba(227, 133, 59, 0.28)', // warm-orange glow, primary emphasis only
+      },
+      elevation: {
+        xs: 1, sm: 2, md: 4, lg: 8, xl: 14, brand: 6,
+      },
+
+      // From tokens.json's `layout` map.
+      screens: {
+        tablet: '700px',
+      },
+      maxWidth: {
+        reading: '620px', // the one reading-column width every screen shares on tablet
+      },
+      height: {
+        'control-sm': '32px', 'control-md': '40px', 'control-lg': '48px',
+      },
+      minHeight: {
+        'tap-min': '44px', // minimum touch target
+      },
+      minWidth: {
+        'tap-min': '44px',
       },
     },
   },

@@ -1,0 +1,129 @@
+/* ============================================================
+   Lifefull · Color tokens
+   Brand palette (from brand identity sheet):
+     Orange  #E3853B   Navy  #2F4864   Olive #8D9163
+     Teal    #5F8CA0   Plum  #8E7C9B
+   Plus a warm neutral ramp and semantic aliases.
+   ============================================================ */
+:root {
+  /* ---- Orange (primary / energy) ---- */
+  --orange-50:  #FCF1E7;
+  --orange-100: #F8DCC1;
+  --orange-200: #F2C194;
+  --orange-300: #EDA868;
+  --orange-400: #E89450;
+  --orange-500: #E3853B; /* BRAND */
+  --orange-600: #C76E2A;
+  --orange-700: #A2571F;
+  --orange-800: #7C4218;
+
+  /* ---- Navy (ink / trust) ---- */
+  --navy-50:  #EBEEF2;
+  --navy-100: #CCD5E0;
+  --navy-200: #9FAFC3;
+  --navy-300: #6F84A0;
+  --navy-400: #4A6480;
+  --navy-500: #2F4864; /* BRAND */
+  --navy-600: #253A52;
+  --navy-700: #1C2C3E;
+  --navy-800: #141F2C;
+  --navy-900: #0D141C;
+
+  /* ---- Olive (growth / nutrition) ---- */
+  --olive-50:  #F1F2EA;
+  --olive-100: #DFE2CC;
+  --olive-200: #C4C9A1;
+  --olive-300: #A8AE79;
+  --olive-400: #989D6E;
+  --olive-500: #8D9163; /* BRAND */
+  --olive-600: #71754C;
+  --olive-700: #54583A;
+
+  /* ---- Teal (calm / movement) ---- */
+  --teal-50:  #EAF1F4;
+  --teal-100: #CFE0E7;
+  --teal-200: #A5C4CF;
+  --teal-300: #7BA7B7;
+  --teal-400: #6B98AB;
+  --teal-500: #5F8CA0; /* BRAND */
+  --teal-600: #4A7081;
+  --teal-700: #375562;
+
+  /* ---- Plum (mind / mindfulness) ---- */
+  --plum-50:  #F0EDF2;
+  --plum-100: #DCD5E2;
+  --plum-200: #C0B4C9;
+  --plum-300: #A595B1;
+  --plum-400: #9A88A6;
+  --plum-500: #8E7C9B; /* BRAND */
+  --plum-600: #71627D;
+  --plum-700: #554A5E;
+
+  /* ---- Warm neutrals (paper-based) ---- */
+  --neutral-0:   #FFFFFF;
+  --neutral-50:  #F8F6F1;
+  --neutral-100: #F1EDE5;
+  --neutral-200: #E4DDD0;
+  --neutral-300: #CFC6B5;
+  --neutral-400: #ABA08C;
+  --neutral-500: #837868;
+  --neutral-600: #5F574A;
+  --neutral-700: #423D33;
+  --neutral-800: #2A2620;
+  --neutral-900: #19160F;
+
+  /* ---- Status (warning/success/info/accent map to brand; error added) ---- */
+  --red-50:  #FBEDE9;
+  --red-100: #F6D9D1;
+  --red-500: #C24A2F; /* added — no red in brand sheet; harmonized warm red */
+  --red-700: #8F3320;
+
+  /* ============================================================
+     Semantic aliases — reference these in product code
+     ============================================================ */
+  /* Brand */
+  --brand-primary:        var(--orange-700);
+  --brand-primary-hover:  var(--orange-800);
+  --brand-primary-active: var(--orange-800);
+  --brand-primary-soft:   var(--orange-50);
+  --brand-ink:            var(--navy-500);
+  --brand-ink-hover:      var(--navy-600);
+
+  /* Text */
+  --text-strong:   var(--navy-700);
+  --text-heading:  var(--navy-500);
+  --text-body:     var(--neutral-800);
+  --text-muted:    #4E483D;  /* darkened one step for readability on warm paper */
+  --text-subtle:   #5C5648;  /* darkened one step; still reads as secondary */
+  --text-inverse:  var(--neutral-0);
+  --text-link:     var(--teal-600);
+  --text-on-brand: var(--neutral-0);
+
+  /* Surfaces */
+  --bg-app:        var(--neutral-50);
+  --surface-card:  var(--neutral-0);
+  --surface-sunken:var(--neutral-100);
+  --surface-raised:var(--neutral-0);
+  --surface-ink:   var(--navy-500);
+  --surface-ink-deep: var(--navy-700);
+
+  /* Borders & lines */
+  --border-subtle: var(--neutral-200);
+  --border-default:var(--neutral-300);
+  --border-strong: var(--neutral-400);
+  --border-brand:  var(--orange-500);
+  --ring-focus:    color-mix(in srgb, var(--teal-500) 55%, transparent);
+
+  /* Status */
+  --success:      var(--olive-600);
+  --success-soft: var(--olive-50);
+  --info:         var(--teal-600);
+  --info-soft:    var(--teal-50);
+  --warning:      var(--orange-500);
+  --warning-soft: var(--orange-50);
+  --accent:       var(--plum-500);
+  --accent-soft:  var(--plum-50);
+  --danger:       var(--red-500);   /* borders, fills, icons on dark */
+  --danger-text:  var(--red-700);   /* error copy on light surfaces — meets AA */
+  --danger-soft:  var(--red-100);
+}

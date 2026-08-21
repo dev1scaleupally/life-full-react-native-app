@@ -24,9 +24,9 @@ export function WelcomeScreen({ onGetStarted }: WelcomeScreenProps) {
         </View>
 
         <View className="flex-1 justify-center gap-5">
-          <Logo variant="white" height={26} />
+          <Logo variant="white-mark" height={26} />
 
-          <Heading level="h1" className="text-5xl text-white">
+          <Heading level="h1" className="text-4xl text-white">
             Your life after work, guided.
           </Heading>
 
@@ -46,11 +46,11 @@ export function WelcomeScreen({ onGetStarted }: WelcomeScreenProps) {
             Get started
           </Button>
 
-          <BodyText className="text-center text-white">
+          <BodyText className="text-center text-navy-700">
             Already with us? <Text className="font-sans-bold">Sign in</Text>
           </BodyText>
 
-          <BodyText size="sm" className="text-center text-white/70">
+          <BodyText size="sm" className="text-center text-navy-700">
             <Text className="underline">Terms of Use</Text>
             {'  ·  '}
             <Text className="underline">Privacy Policy</Text>
