@@ -3,7 +3,12 @@
 // sync with that source, don't hand-edit values away from it. Light-only: the
 // Lifefull design system defines a single palette, no dark variant.
 module.exports = {
-  content: ['./App.tsx', './components/**/*.{js,jsx,ts,tsx}'],
+  content: [
+    './App.tsx',
+    './components/**/*.{js,jsx,ts,tsx}',
+    './screens/**/*.{js,jsx,ts,tsx}',
+    './navigation/**/*.{js,jsx,ts,tsx}',
+  ],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
@@ -60,6 +65,7 @@ module.exports = {
           app: '#F8F6F1',
           card: '#FFFFFF',
           sunken: '#F1EDE5',
+          screen:"#f5eadd",
           raised: '#FFFFFF',
           ink: '#2F4864',
           'ink-deep': '#1C2C3E',

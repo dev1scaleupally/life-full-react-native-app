@@ -1,16 +1,18 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from './Button';
 import { DawnGradient } from './DawnGradient';
 import { ChevronRight } from './icons/ChevronRight';
 import { Logo } from './Logo';
+import { layout } from '../tokens/theme';
 import { BodyText, Heading } from './Typography';
 
 export type WelcomeScreenProps = {
   onGetStarted?: () => void;
+  onSignIn?: () => void;
 };
 
-export function WelcomeScreen({ onGetStarted }: WelcomeScreenProps) {
+export function WelcomeScreen({ onGetStarted, onSignIn }: WelcomeScreenProps) {
   return (
     <View className="flex-1">
       <DawnGradient />
@@ -46,9 +48,16 @@ export function WelcomeScreen({ onGetStarted }: WelcomeScreenProps) {
             Get started
           </Button>
 
-          <BodyText className="text-center text-navy-700">
-            Already with us? <Text className="font-sans-bold">Sign in</Text>
-          </BodyText>
+          <Pressable
+            accessibilityRole="link"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            onPress={onSignIn}
+            style={{ minHeight: layout.tapMin, justifyContent: 'center' }}
+          >
+            <BodyText className="text-center text-navy-700">
+              Already with us? <Text className="font-sans-bold">Sign in</Text>
+            </BodyText>
+          </Pressable>
 
           <BodyText size="sm" className="text-center text-navy-700">
             <Text className="underline">Terms of Use</Text>

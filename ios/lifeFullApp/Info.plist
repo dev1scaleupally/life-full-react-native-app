@@ -33,6 +33,29 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.lifefull.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>lifefull</string>
+			</array>
+		</dict>
+		<!--
+			Google Sign-In: once config/authConfig.ts's GOOGLE_IOS_CLIENT_ID is
+			set, replace REPLACE_WITH_REVERSED_IOS_CLIENT_ID below with that same
+			client ID reversed, e.g. "1234-abc.apps.googleusercontent.com" ->
+			"com.googleusercontent.apps.1234-abc". Until then this entry is inert.
+		-->
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.802707665550-63gklm1r0jpdu6trtq0adf3n0ej2e00c</string>
+			</array>
+		</dict>
+	</array>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -46,6 +46,8 @@ export type ButtonProps = Omit<PressableProps, 'children'> & {
   size?: ButtonSize;
   loading?: boolean;
   children: string;
+  /** Rendered before the label, e.g. a provider mark on an OAuth button. Hidden while loading. */
+  leftIcon?: ReactNode;
   /** Rendered after the label, e.g. a chevron icon. Hidden while loading. */
   rightIcon?: ReactNode;
   className?: string;
@@ -57,6 +59,7 @@ export function Button({
   loading = false,
   disabled,
   children,
+  leftIcon,
   rightIcon,
   className = '',
   ...rest
@@ -80,6 +83,7 @@ export function Button({
         <ActivityIndicator color={variant === 'primary' ? '#FFFFFF' : '#A2571F'} />
       ) : (
         <>
+          {leftIcon}
           <BodyText
             size={textSizeClasses[size]}
             className={`font-sans-bold ${textClasses[variant]}`}

@@ -14,6 +14,7 @@ export * from './onboarding/types';
 export * from './reflections/LikertOptionRow';
 export * from './reflections/ReflectionsFlow';
 export * from './reflections/types';
+export * from './ReadingColumn';
 export * from './ReflectionsIntroScreen';
 export * from './ScoreCard';
 export * from './Select';
