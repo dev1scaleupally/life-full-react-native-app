@@ -8,7 +8,11 @@
  * shape here (custom scheme, one query param) is trivial to parse directly.
  */
 import { navigationRef } from '../../navigation/navigationRef';
-import { completeEmailVerification, validateResetToken } from './authService';
+import { authApi } from '../api/authApi';
+import { ApiError } from '../api/types';
+import { store } from '../../store';
+import { authActions } from '../../store/auth/authSlice';
+import { validateResetToken } from './authService';
 
 export type ParsedAuthLink = { type: 'verify' | 'reset'; token: string } | null;
 
@@ -37,17 +41,26 @@ export async function handleAuthDeepLink(url: string): Promise<void> {
   if (!parsed || !navigationRef.isReady()) return;
 
   if (parsed.type === 'verify') {
-    const result = await completeEmailVerification(parsed.token);
-    if (!result) return; // unknown or already-used token — nothing to do
-    if (result.expired) {
-      navigationRef.navigate('EmailVerify', { email: result.email, expired: true });
-    } else {
+    try {
+      const result = await authApi.verifyEmail(parsed.token);
+      store.dispatch(authActions.verifyEmailSucceeded());
       // Deliberately no separate "verified!" screen — straight to sign-in.
       navigationRef.navigate('EmailForm', {
         mode: 'signin',
         email: result.email,
         verifiedBanner: true,
       });
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Something went wrong. Please try again.';
+      console.error('[deepLinks] verify-email API error:', message);
+      store.dispatch(authActions.verifyEmailFailed({ message }));
+      // 410 = expired, and the backend echoes back the address it belonged to
+      // (the link itself carries only a token). Anything else — invalid or
+      // already-consumed token, network error — there's nowhere useful to
+      // route, so it's a silent no-op, same as the mock's "unknown token" case.
+      if (err instanceof ApiError && err.statusCode === 410 && err.email) {
+        navigationRef.navigate('EmailVerify', { email: err.email, expired: true });
+      }
     }
     return;
   }

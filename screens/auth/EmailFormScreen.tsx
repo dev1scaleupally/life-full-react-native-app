@@ -8,7 +8,6 @@ import { BodyText, Heading } from '../../components/Typography';
 import { STORAGE_KEYS } from '../../constants/storage';
 import { useAuthResolution } from '../../navigation/AuthResolutionContext';
 import type { AuthStackParamList } from '../../navigation/types';
-import { signInWithEmail } from '../../services/auth/authService';
 import { authActions } from '../../store/auth/authSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { isValidEmail, isValidPassword } from '../../utils/validators';
@@ -54,14 +53,18 @@ export function EmailFormScreen({ route, navigation }: Props) {
   const [firstNameEdited, setFirstNameEdited] = useState(false);
   const resolveAuth = useAuthResolution();
   const dispatch = useAppDispatch();
-  const registerStatus = useAppSelector(state => state.auth.status);
-  const registerError = useAppSelector(state => state.auth.error);
+  // Shared by both registerRequested and loginRequested — one submit flow
+  // per screen instance, so there's never a mix-up between the two.
+  const authStatus = useAppSelector(state => state.auth.status);
+  const authError = useAppSelector(state => state.auth.error);
   const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
-  // Set right before dispatching registerRequested, cleared once that
-  // dispatch's outcome (success or error) has been handled below — this is
-  // what tells the effect a status change actually belongs to *this*
-  // screen's submit, not e.g. the app-launch session refresh.
-  const pendingRegisterRef = useRef(false);
+  const userId = useAppSelector(state => state.auth.userId);
+  const emailVerified = useAppSelector(state => state.auth.emailVerified);
+  // Set right before dispatching registerRequested/loginRequested, cleared
+  // once that dispatch's outcome (success or error) has been handled below —
+  // this is what tells the effect a status change actually belongs to
+  // *this* screen's submit, not e.g. the app-launch session refresh.
+  const pendingAuthRef = useRef(false);
 
   // First name pre-fills from the onboarding flow's answers, but only while
   // it hasn't been touched — the hint disappears the moment the user edits it.
@@ -96,22 +99,34 @@ export function EmailFormScreen({ route, navigation }: Props) {
     }
   }
 
-  // registerRequested's reducer flips status to 'loading' synchronously on
-  // dispatch, so by the time this effect sees anything other than
-  // 'loading' the saga has actually finished — no race with a stale status
-  // left over from a previous (unrelated) auth action.
+  // registerRequested/loginRequested's reducer flips status to 'loading'
+  // synchronously on dispatch, so by the time this effect sees anything
+  // other than 'loading' the saga has actually finished — no race with a
+  // stale status left over from a previous (unrelated) auth action.
   useEffect(() => {
-    if (!pendingRegisterRef.current || registerStatus === 'loading') return;
-    pendingRegisterRef.current = false;
+    if (!pendingAuthRef.current || authStatus === 'loading') return;
+    pendingAuthRef.current = false;
     setSubmitting(false);
-    if (registerStatus === 'error') {
-      console.error('[EmailFormScreen] register API error:', registerError);
-      setBanner(registerError ?? 'Something went wrong. Please try again.');
-    } else if (isAuthenticated) {
-      navigation.navigate('EmailVerify', { email: fields.email });
+    if (authStatus === 'error') {
+      console.error(`[EmailFormScreen] ${isSignup ? 'register' : 'login'} API error:`, authError);
+      setBanner(authError ?? 'Something went wrong. Please try again.');
+    } else if (isAuthenticated && userId) {
+      // Resolve immediately, verified or not — matches the backend's own
+      // design ("the app never blocks sign-in on verification"). There's no
+      // GET /me yet, so most of AuthAccount is best-effort: real for
+      // signup (the user just typed it), blank for sign-in.
+      resolveAuth({
+        id: userId,
+        email: fields.email,
+        firstName: isSignup ? fields.firstName : '',
+        lastName: isSignup ? fields.lastName : '',
+        emailVerified: emailVerified ?? false,
+        subscriptionStatus: 'never_subscribed',
+        provider: 'email',
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerStatus]);
+  }, [authStatus]);
 
   function handleChange(key: FieldKey, value: string) {
     const next = { ...fields, [key]: value };
@@ -129,7 +144,7 @@ export function EmailFormScreen({ route, navigation }: Props) {
     });
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
     setBanner(null);
     const nextErrors: Partial<Record<FieldKey, string>> = {};
     for (const key of relevantKeys) {
@@ -139,11 +154,11 @@ export function EmailFormScreen({ route, navigation }: Props) {
     setSubmittedOnce(true);
     if (relevantKeys.some(key => nextErrors[key])) return;
 
+    // Resolved by the effect above, once authStatus leaves 'loading' —
+    // dispatch is fire-and-forget, the saga does the actual POST request.
+    setSubmitting(true);
+    pendingAuthRef.current = true;
     if (isSignup) {
-      // Resolved by the effect above, once registerStatus leaves 'loading' —
-      // dispatch is fire-and-forget, the saga does the actual POST /auth/register.
-      setSubmitting(true);
-      pendingRegisterRef.current = true;
       dispatch(
         authActions.registerRequested({
           firstName: fields.firstName,
@@ -152,27 +167,8 @@ export function EmailFormScreen({ route, navigation }: Props) {
           password: fields.password,
         }),
       );
-      return;
-    }
-
-    // Sign-in is still on the mock backend (services/auth/authService) —
-    // not yet switched over to authActions.loginRequested.
-    setSubmitting(true);
-    try {
-      const result = await signInWithEmail({ email: fields.email, password: fields.password });
-      if (result.ok) {
-        // Handoff point: RootNavigator (not built here) routes on
-        // account + subscription state -> Paywall (firstRun/resume) -> AppTabs.
-        resolveAuth(result.account);
-      } else {
-        console.error('[EmailFormScreen] sign-in API error:', result.error);
-        setBanner("We couldn't sign you in. Check your email and password, then try again.");
-      }
-    } catch (err) {
-      console.error('[EmailFormScreen] sign-in request threw:', err);
-      setBanner('Something went wrong. Please try again.');
-    } finally {
-      setSubmitting(false);
+    } else {
+      dispatch(authActions.loginRequested({ email: fields.email, password: fields.password }));
     }
   }
 

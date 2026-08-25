@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/Button';
@@ -12,6 +12,8 @@ import { useAuthResolution } from '../../navigation/AuthResolutionContext';
 import { signInWithApple } from '../../services/auth/appleAuth';
 import { upsertOAuthAccount } from '../../services/auth/authService';
 import { isUserCancelledGoogleSignIn, signInWithGoogle } from '../../services/auth/googleAuth';
+import { authActions } from '../../store/auth/authSlice';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { layout } from '../../tokens/theme';
 import { AuthBanner } from './AuthBanner';
 
@@ -22,30 +24,93 @@ export function AccountGateScreen({ route, navigation }: Props) {
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [oauthBusy, setOauthBusy] = useState<'google' | 'apple' | null>(null);
   const resolveAuth = useAuthResolution();
+  const dispatch = useAppDispatch();
+  // Shared with EmailFormScreen's real auth dispatches — one submit flow per
+  // screen instance either way, so there's never a mix-up.
+  const authStatus = useAppSelector(state => state.auth.status);
+  const authError = useAppSelector(state => state.auth.error);
+  const isAuthenticated = useAppSelector(state => state.auth.isAuthenticated);
+  const userId = useAppSelector(state => state.auth.userId);
+  const emailVerified = useAppSelector(state => state.auth.emailVerified);
   const isSignup = mode === 'signup';
   const verb = isSignup ? 'Continue' : 'Sign in';
+  // Set right before dispatching googleLoginRequested, cleared once that
+  // dispatch's outcome has been handled below — carries the real
+  // name/email Google's own sign-in sheet returned (the backend's session
+  // response doesn't echo them back, same gap as email/password sign-in).
+  const pendingGoogleRef = useRef<{ email: string; firstName: string; lastName: string } | null>(null);
+
+  useEffect(() => {
+    if (!pendingGoogleRef.current || authStatus === 'loading') return;
+    const profile = pendingGoogleRef.current;
+    pendingGoogleRef.current = null;
+    setOauthBusy(null);
+    if (authStatus === 'error') {
+      console.error('[AccountGateScreen] google login API error:', authError);
+      setOauthError(authError ?? "We couldn't complete Google sign-in. Try again, or use email instead.");
+      return;
+    }
+    if (isAuthenticated && userId) {
+      resolveAuth({
+        id: userId,
+        email: profile.email,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        emailVerified: emailVerified ?? true,
+        subscriptionStatus: 'never_subscribed',
+        provider: 'google',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus]);
 
   async function handleOAuth(provider: 'google' | 'apple') {
     setOauthError(null);
     setOauthBusy(provider);
+
+    if (provider === 'google') {
+      try {
+        const profile = await signInWithGoogle();
+        if (!profile) {
+          setOauthBusy(null);
+          return; // user backed out of the native sheet — not an error
+        }
+        // Resolved by the effect above, once authStatus leaves 'loading' —
+        // dispatch is fire-and-forget, the saga does the actual POST /auth/google.
+        pendingGoogleRef.current = {
+          email: profile.email,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+        };
+        dispatch(authActions.googleLoginRequested({ idToken: profile.idToken }));
+      } catch (err) {
+        setOauthBusy(null);
+        if (isUserCancelledGoogleSignIn(err)) return;
+        const message = err instanceof Error ? err.message : '';
+        setOauthError(
+          message.includes('not configured yet')
+            ? message
+            : "We couldn't complete Google sign-in. Try again, or use email instead.",
+        );
+      }
+      return;
+    }
+
+    // Apple: still on the mock backend (services/auth/authService) — not yet
+    // switched over to authActions.appleLoginRequested.
     try {
-      const profile = provider === 'google' ? await signInWithGoogle() : await signInWithApple();
+      const profile = await signInWithApple();
       if (!profile) return; // user backed out of the native sheet — not an error
       const result = await upsertOAuthAccount({ provider, ...profile });
       if (result.ok) {
-        // Handoff point: RootNavigator (not built here) routes on
-        // account + subscription state -> Paywall (firstRun/resume) -> AppTabs.
         resolveAuth(result.account);
       }
     } catch (err) {
-      if (provider === 'google' && isUserCancelledGoogleSignIn(err)) return;
-      // "Not configured yet" is a setup error, not a runtime failure — surface
-      // it as-is (see config/authConfig.ts) instead of the generic message.
       const message = err instanceof Error ? err.message : '';
       setOauthError(
         message.includes('not configured yet')
           ? message
-          : `We couldn't complete ${provider === 'google' ? 'Google' : 'Apple'} sign-in. Try again, or use email instead.`,
+          : "We couldn't complete Apple sign-in. Try again, or use email instead.",
       );
     } finally {
       setOauthBusy(null);

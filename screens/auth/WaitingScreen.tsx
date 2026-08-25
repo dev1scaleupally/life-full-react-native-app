@@ -17,6 +17,7 @@ export type WaitingScreenProps = {
   ctaDisabled: boolean;
   onPressCta: () => void;
   confirmation?: string | null;
+  error?: string | null;
   hint?: string;
   onUseDifferentEmail?: () => void;
 };
@@ -31,6 +32,7 @@ export function WaitingScreen({
   ctaDisabled,
   onPressCta,
   confirmation,
+  error,
   hint,
   onUseDifferentEmail,
 }: WaitingScreenProps) {
@@ -40,6 +42,7 @@ export function WaitingScreen({
       onBack={onBack}
       footer={
         <View className="gap-3">
+          {error ? <AuthBanner variant="danger">{error}</AuthBanner> : null}
           {confirmation ? <AuthBanner variant="success">{confirmation}</AuthBanner> : null}
           <Button size="lg" disabled={ctaDisabled} onPress={onPressCta}>
             {ctaLabel}

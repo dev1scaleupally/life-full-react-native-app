@@ -11,18 +11,24 @@ export type ApiErrorBody = {
   statusCode: number;
   message: string;
   issues?: unknown[];
+  /** Only set by POST /auth/verify-email's 410 response — the deep link that
+   * triggers it carries just a token, so this is the only way the caller
+   * learns which address an expired link belonged to. */
+  email?: string;
 };
 
 /** Thrown by httpClient for any non-2xx response; sagas catch this. */
 export class ApiError extends Error {
   statusCode: number;
   issues?: unknown[];
+  email?: string;
 
   constructor(body: ApiErrorBody) {
     super(body.message);
     this.name = 'ApiError';
     this.statusCode = body.statusCode;
     this.issues = body.issues;
+    this.email = body.email;
   }
 }
 
@@ -46,7 +52,7 @@ export type RegisterInput = {
   password: string;
 };
 
-export type VerifyEmailResult = { ok: true };
+export type VerifyEmailResult = { ok: true; email: string };
 
 export type GoogleLoginInput = { idToken: string };
 

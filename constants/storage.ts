@@ -11,4 +11,11 @@ export const STORAGE_KEYS = {
   accessToken: 'lf_access_token',
   refreshToken: 'lf_refresh_token',
   userId: 'lf_user_id',
+  /** JSON {firstName, lastName} — cached the moment an interactive sign-in
+   * actually learns a real name (there's no GET /me endpoint), so a plain
+   * app reopen's silent session restore (rootSaga's bootstrap) has
+   * something better than blank to show on Profile/Settings. Best-effort
+   * only: goes stale if the account's name changes elsewhere, and a fresh
+   * device/reinstall starts with nothing cached either. */
+  accountName: 'lf_account_name',
 } as const;

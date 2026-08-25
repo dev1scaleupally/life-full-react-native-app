@@ -4,7 +4,14 @@
  * ./OnboardingFlow.tsx) so navigating back never loses anything, and the
  * whole step sequence is data-driven from STEPS below rather than one
  * hand-written screen per question.
+ *
+ * Field names and every option `value` below are the exact strings
+ * POST /v1/onboarding/responses expects (see `BasicProfile` in
+ * services/api/types.ts, and GET /v1/onboarding/catalog's
+ * `basicProfileFields` for the authoritative list) — labels can drift from
+ * the catalog's copy, values can't.
  */
+import type { BasicProfile } from '../../services/api/types';
 
 export type Option = { value: string; label: string };
 
@@ -12,36 +19,39 @@ export type OnboardingAnswers = {
   firstName: string;
   ageRange: string | null;
   gender: string | null;
-  genderSelfDescribe: string;
+  genderSelfDescribed: string;
   relationshipStatus: string | null;
   livingSituation: string | null;
+  /** Collected for UX ("tell us more" when livingSituation is "other"), but
+   * BasicProfile has no field for it — the backend has nowhere to put this,
+   * so it's deliberately never sent (see toBasicProfile below). */
   livingSituationOther: string;
   location: string | null;
-  careerCategory: string | null;
-  careerCategoryOther: string;
+  careerField: string | null;
+  careerFieldOther: string;
   careerRole: string;
   retirementStatus: string | null;
   howLongRetired: string | null;
-  retiringReasons: string[];
-  retiringReasonsOther: string;
+  primaryReasonForRetiring: string[];
+  primaryReasonOther: string;
 };
 
 export const INITIAL_ANSWERS: OnboardingAnswers = {
   firstName: '',
   ageRange: null,
   gender: null,
-  genderSelfDescribe: '',
+  genderSelfDescribed: '',
   relationshipStatus: null,
   livingSituation: null,
   livingSituationOther: '',
   location: null,
-  careerCategory: null,
-  careerCategoryOther: '',
+  careerField: null,
+  careerFieldOther: '',
   careerRole: '',
   retirementStatus: null,
   howLongRetired: null,
-  retiringReasons: [],
-  retiringReasonsOther: '',
+  primaryReasonForRetiring: [],
+  primaryReasonOther: '',
 };
 
 type BaseStep = {
@@ -98,7 +108,7 @@ export const STEPS: StepConfig[] = [
       { value: '60_64', label: '60–64' },
       { value: '65_69', label: '65–69' },
       { value: '70_74', label: '70–74' },
-      { value: '75_plus', label: '75 or older' },
+      { value: '75_or_older', label: '75 or older' },
     ],
   },
   {
@@ -110,12 +120,12 @@ export const STEPS: StepConfig[] = [
       { value: 'male', label: 'Male' },
       { value: 'female', label: 'Female' },
       { value: 'non_binary', label: 'Non-binary' },
-      { value: 'prefer_not', label: 'Prefer not to say' },
+      { value: 'prefer_not_to_say', label: 'Prefer not to say' },
       { value: 'self_describe', label: 'Prefer to self-describe' },
     ],
     otherTextField: {
       triggerValue: 'self_describe',
-      key: 'genderSelfDescribe',
+      key: 'genderSelfDescribed',
       placeholder: "How you'd describe it",
     },
   },
@@ -125,11 +135,11 @@ export const STEPS: StepConfig[] = [
     key: 'relationshipStatus',
     title: "What's your relationship status?",
     options: [
-      { value: 'partnered', label: 'Married or in a long-term partnership' },
-      { value: 'single', label: 'Single — never married' },
-      { value: 'divorced', label: 'Divorced or separated' },
+      { value: 'married_partnered', label: 'Married or in a long-term partnership' },
+      { value: 'single_never_married', label: 'Single — never married' },
+      { value: 'divorced_separated', label: 'Divorced or separated' },
       { value: 'widowed', label: 'Widowed' },
-      { value: 'complicated', label: "It's complicated / other" },
+      { value: 'complicated_other', label: "It's complicated / other" },
     ],
   },
   {
@@ -139,9 +149,9 @@ export const STEPS: StepConfig[] = [
     title: 'Who do you live with?',
     options: [
       { value: 'alone', label: 'Alone' },
-      { value: 'partner', label: 'With a partner or spouse' },
-      { value: 'family', label: 'With family (children, siblings, or other relatives)' },
-      { value: 'roommates', label: 'With roommates or housemates' },
+      { value: 'with_partner', label: 'With a partner or spouse' },
+      { value: 'with_family', label: 'With family (children, siblings, or other relatives)' },
+      { value: 'with_roommates', label: 'With roommates or housemates' },
       { value: 'retirement_community', label: 'In a retirement community' },
       { value: 'other', label: 'Other' },
     ],
@@ -159,30 +169,30 @@ export const STEPS: StepConfig[] = [
     options: [
       { value: 'urban', label: 'Urban / city' },
       { value: 'suburban', label: 'Suburban' },
-      { value: 'rural', label: 'Small town or rural' },
+      { value: 'small_town_rural', label: 'Small town or rural' },
       { value: 'outside_country', label: 'Outside the country' },
     ],
   },
   {
-    id: 'careerCategory',
+    id: 'careerField',
     type: 'single',
-    key: 'careerCategory',
+    key: 'careerField',
     title: 'What was your primary career or profession?',
     options: [
-      { value: 'business', label: 'Business, finance, or management' },
-      { value: 'medicine', label: 'Medicine, healthcare, or life sciences' },
-      { value: 'law', label: 'Law or government' },
-      { value: 'education', label: 'Education or academia' },
-      { value: 'engineering', label: 'Engineering or technology' },
+      { value: 'business_finance_management', label: 'Business, finance, or management' },
+      { value: 'medicine_healthcare', label: 'Medicine, healthcare, or life sciences' },
+      { value: 'law_government', label: 'Law or government' },
+      { value: 'education_academia', label: 'Education or academia' },
+      { value: 'engineering_technology', label: 'Engineering or technology' },
       { value: 'creative', label: 'Creative fields (design, media, arts)' },
       { value: 'entrepreneurship', label: 'Entrepreneurship / business ownership' },
-      { value: 'military', label: 'Military or public service' },
-      { value: 'nonprofit', label: 'Non-profit or social sector' },
+      { value: 'military_public_service', label: 'Military or public service' },
+      { value: 'nonprofit_social', label: 'Non-profit or social sector' },
       { value: 'other', label: 'Other' },
     ],
     otherTextField: {
       triggerValue: 'other',
-      key: 'careerCategoryOther',
+      key: 'careerFieldOther',
       placeholder: 'What field?',
     },
     secondaryTextField: {
@@ -212,19 +222,19 @@ export const STEPS: StepConfig[] = [
         ? 'How long have you been semi-retired?'
         : 'How long have you been retired?',
     options: [
-      { value: 'lt_6m', label: 'Less than 6 months' },
-      { value: '6m_1y', label: '6 months to 1 year' },
-      { value: '1_2y', label: '1 to 2 years' },
-      { value: '2_5y', label: '2 to 5 years' },
-      { value: '5y_plus', label: 'More than 5 years' },
+      { value: 'less_than_6_months', label: 'Less than 6 months' },
+      { value: '6_months_to_1_year', label: '6 months to 1 year' },
+      { value: '1_to_2_years', label: '1 to 2 years' },
+      { value: '2_to_5_years', label: '2 to 5 years' },
+      { value: 'more_than_5_years', label: 'More than 5 years' },
     ],
     visible: answers =>
       answers.retirementStatus === 'fully_retired' || answers.retirementStatus === 'semi_retired',
   },
   {
-    id: 'retiringReasons',
+    id: 'primaryReasonForRetiring',
     type: 'multi',
-    key: 'retiringReasons',
+    key: 'primaryReasonForRetiring',
     title: 'What led you to retire?',
     subtitle: 'Select all that apply.',
     options: [
@@ -235,12 +245,12 @@ export const STEPS: StepConfig[] = [
       { value: 'role_changed', label: 'My role or organization changed and it no longer felt right' },
       { value: 'pushed_out', label: 'I was pushed out or made redundant' },
       { value: 'partner_retired', label: 'My partner or spouse retired and we decided together' },
-      { value: 'still_figuring_out', label: "I haven't fully retired yet — still figuring it out" },
+      { value: 'not_fully_retired', label: "I haven't fully retired yet — still figuring it out" },
       { value: 'other', label: 'Other' },
     ],
     otherTextField: {
       triggerValue: 'other',
-      key: 'retiringReasonsOther',
+      key: 'primaryReasonOther',
       placeholder: 'Tell us more',
     },
   },
@@ -290,4 +300,46 @@ export function isStepValid(step: StepConfig, answers: OnboardingAnswers): boole
     return String(answers[step.otherTextField.key] ?? '').trim().length > 0;
   }
   return true;
+}
+
+/**
+ * The display label for a stored option value (e.g. 'small_town_rural' ->
+ * 'Small town or rural') — single source of truth off STEPS' own option
+ * lists, so the Profile screen's "About You" section never has to duplicate
+ * this copy. Falls back to the raw value for a text-step key (no options)
+ * or an unrecognized value.
+ */
+export function optionLabel(key: keyof OnboardingAnswers, value: string | null): string | null {
+  if (!value) return null;
+  const step = STEPS.find(s => s.key === key && s.type !== 'text');
+  if (!step || step.type === 'text') return value;
+  return step.options.find(o => o.value === value)?.label ?? value;
+}
+
+/**
+ * Every required field here is guaranteed non-null/non-empty by the time
+ * OnboardingFlow's onComplete fires — isStepValid gates Continue on exactly
+ * that. `livingSituationOther` has no home in BasicProfile (the backend
+ * doesn't accept it), so it's the one answer collected here that never
+ * leaves the device.
+ */
+export function toBasicProfile(answers: OnboardingAnswers): BasicProfile {
+  return {
+    firstName: answers.firstName.trim(),
+    ageRange: answers.ageRange!,
+    gender: answers.gender!,
+    genderSelfDescribed: answers.gender === 'self_describe' ? answers.genderSelfDescribed.trim() || null : null,
+    relationshipStatus: answers.relationshipStatus!,
+    livingSituation: answers.livingSituation!,
+    location: answers.location!,
+    careerField: answers.careerField!,
+    careerFieldOther: answers.careerField === 'other' ? answers.careerFieldOther.trim() || null : null,
+    careerRole: answers.careerRole.trim() || null,
+    retirementStatus: answers.retirementStatus!,
+    howLongRetired: answers.howLongRetired,
+    primaryReasonForRetiring: answers.primaryReasonForRetiring,
+    primaryReasonOther: answers.primaryReasonForRetiring.includes('other')
+      ? answers.primaryReasonOther.trim() || null
+      : null,
+  };
 }
