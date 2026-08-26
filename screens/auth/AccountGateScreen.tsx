@@ -143,7 +143,7 @@ export function AccountGateScreen({ route, navigation }: Props) {
             <View className="mt-7 w-full gap-3">
               <Button
                 variant="secondary"
-                size="lg"
+                size="md"
                 className="w-full border-[1.5px] bg-[#fff] shadow-xs"
                 leftIcon={<Icon name="google" size={18} />}
                 loading={oauthBusy === 'google'}
@@ -154,7 +154,7 @@ export function AccountGateScreen({ route, navigation }: Props) {
               </Button>
               <Button
                 variant="secondary"
-                size="lg"
+                size="md"
                 className="w-full border-[1.5px] bg-[#fff] shadow-xs"
                 leftIcon={<Icon name="apple" size={18} />}
                 loading={oauthBusy === 'apple'}
@@ -174,7 +174,7 @@ export function AccountGateScreen({ route, navigation }: Props) {
 
               <Button
                 variant="secondary"
-                size="lg"
+                size="md"
                 className="w-full border-[1.5px] bg-[#fff] shadow-xs"
                 leftIcon={<Icon name="mail" size={18} />}
                 disabled={oauthBusy !== null}

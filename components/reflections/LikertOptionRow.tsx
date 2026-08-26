@@ -52,7 +52,7 @@ export function LikertOptionRow({
           selected ? 'font-sans-bold text-brand' : 'text-text-body'
         }`}
       >
-        {label}s
+        {label}
       </BodyText>
     </Pressable>
   );

@@ -199,6 +199,24 @@ function AppShell() {
   // onboarding from scratch. Anything else (network failure, a genuine 5xx)
   // is a real error and is left alone rather than silently reinterpreted as
   // "just needs onboarding".
+  // Dispatches the real POST /onboarding/responses commit for the buffered
+  // on-device answers — shared by onAuthResolved (fresh signup, right after
+  // account creation) and the results screen's "Start free trial" (when the
+  // user was already signed in the whole time, e.g. via the 409 "not
+  // onboarded yet" redirect — no reason to send them through sign-in again
+  // just to do the same commit).
+  function commitOnboarding(profile: OnboardingAnswers, answers: ReflectionAnswers) {
+    const responses: OnboardingResponseEntry[] = FLAT_QUESTIONS.map(({ question }) => ({
+      questionId: question.id,
+      // Always the raw 1–5 the user picked — the backend reverses
+      // reverse-coded questions itself, never pre-reverse this.
+      rawScore: answers[question.id],
+      userText: null,
+    }));
+    pendingSubmitRef.current = true;
+    dispatch(onboardingActions.responsesSubmitted({ basicProfile: toBasicProfile(profile), responses }));
+  }
+
   // landOn: where success lands — Home's/Settings' Profile icon always wants
   // 'profile' (that's the point of tapping it); a login/session-restore
   // wants 'main' instead, straight to Home, now that profileData is at
@@ -372,29 +390,16 @@ function AppShell() {
               // buffer (already shown as results, before this point) gets
               // committed to the real ledger now that there's an access
               // token to send it with.
-              const responses: OnboardingResponseEntry[] = FLAT_QUESTIONS.map(({ question }) => ({
-                questionId: question.id,
-                // Always the raw 1–5 the user picked — the backend reverses
-                // reverse-coded questions itself, never pre-reverse this.
-                rawScore: reflectionAnswers[question.id],
-                userText: null,
-              }));
-              pendingSubmitRef.current = true;
-              dispatch(
-                onboardingActions.responsesSubmitted({
-                  basicProfile: toBasicProfile(basicProfile),
-                  responses,
-                }),
-              );
+              commitOnboarding(basicProfile, reflectionAnswers);
               return;
             }
-              // Returning-user sign-in (Welcome's "Sign in" link, or a Google
-              // account that already existed) — no onboarding/reflections
-              // collected this session, so there's nothing on-device to show;
-              // load their already-committed data (or send them through
-              // onboarding if they never completed it). Progress found ->
-              // straight to Home, not Profile.
-              loadProfileFromServer(undefined, 'main');
+            // Returning-user sign-in (Welcome's "Sign in" link, or a Google
+            // account that already existed) — no onboarding/reflections
+            // collected this session, so there's nothing on-device to show;
+            // load their already-committed data (or send them through
+            // onboarding if they never completed it). Progress found ->
+            // straight to Home, not Profile.
+            loadProfileFromServer(undefined, 'main');
           }}
         />
       ) : screen === 'results' && resultsData ? (
@@ -405,6 +410,14 @@ function AppShell() {
           cognitiveAlignmentScore={resultsData.cognitiveAlignmentScore}
           domainResults={resultsData.domainResults}
           onStartTrial={() => {
+            if (isAuthenticated && basicProfile && reflectionAnswers) {
+              // Already signed in — this happens when onboarding was
+              // reached while logged in (e.g. the 409 "not onboarded yet"
+              // redirect). No reason to ask them to sign in again just to
+              // do the same commit.
+              commitOnboarding(basicProfile, reflectionAnswers);
+              return;
+            }
             setAuthMode('signup');
             setScreen('auth');
           }}

@@ -1,4 +1,5 @@
 import { Image, View } from 'react-native';
+import { cn } from './cn';
 import { BodyText } from './Typography';
 
 type AvatarSize = 'sm' | 'md' | 'lg';
@@ -26,12 +27,12 @@ export type AvatarProps = {
 
 export function Avatar({ source, initials, size = 'md', className = '' }: AvatarProps) {
   if (source) {
-    return <Image source={{ uri: source }} className={`rounded-full ${sizeClasses[size]} ${className}`} />;
+    return <Image source={{ uri: source }} className={cn('rounded-full', sizeClasses[size], className)} />;
   }
 
   return (
     <View
-      className={`items-center justify-center rounded-full bg-brand-soft ${sizeClasses[size]} ${className}`}
+      className={cn('items-center justify-center rounded-full bg-brand-soft', sizeClasses[size], className)}
     >
       <BodyText size={textSizeClasses[size]} className="font-sans-bold text-brand">
         {initials ?? '?'}

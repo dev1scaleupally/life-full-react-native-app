@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { TextInput, View, type TextInputProps } from 'react-native';
+import { cn } from './cn';
 import { BodyText } from './Typography';
 
 export type InputProps = TextInputProps & {
@@ -44,9 +45,12 @@ export function Input({
             setFocused(false);
             onBlur?.(e);
           }}
-          className={`rounded-md border bg-surface-card px-4 py-3 font-sans text-base text-text-body ${borderClass} ${
-            rightElement ? 'pr-16' : ''
-          } ${className}`}
+          className={cn(
+            'rounded-md border bg-surface-card px-4 py-3 font-sans text-base text-text-body',
+            borderClass,
+            rightElement ? 'pr-16' : '',
+            className
+          )}
           {...rest}
         />
         {rightElement ? <View className="absolute right-3">{rightElement}</View> : null}

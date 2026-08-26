@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, type PressableProps } from 'react-native';
+import { cn } from './cn';
 import { BodyText } from './Typography';
 import { usePressed } from './usePressed';
 
@@ -30,7 +31,7 @@ const textClasses: Record<ButtonVariant, string> = {
 const sizeClasses: Record<ButtonSize, string> = {
   sm: 'px-4 py-2',
   md: 'px-5 py-3',
-  lg: 'px-6 py-4',
+  lg: 'px-5 py-3',
 };
 
 const textSizeClasses: Record<ButtonSize, 'sm' | 'base' | 'lg'> = {
@@ -74,9 +75,13 @@ export function Button({
       disabled={isDisabled}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      className={`flex-row items-center justify-center gap-2 rounded-pill ${
-        pressed ? containerPressedClasses[variant] : containerClasses[variant]
-      } ${sizeClasses[size]} ${isDisabled ? 'opacity-50' : ''} ${className}`}
+      className={cn(
+        'flex-row items-center justify-center gap-2 rounded-pill',
+        pressed ? containerPressedClasses[variant] : containerClasses[variant],
+        sizeClasses[size],
+        isDisabled ? 'opacity-50' : '',
+        className
+      )}
       {...rest}
     >
       {loading ? (

@@ -26,7 +26,8 @@
     "react-native-screens": "4.20.0",
     "react-native-svg": "^15.15.5",
     "react-redux": "^9.3.0",
-    "redux-saga": "^1.5.1"
+    "redux-saga": "^1.5.1",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

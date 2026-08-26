@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, View } from 'react-native';
+import { cn } from './cn';
 import { BodyText } from './Typography';
 
 export type SelectOption<T extends string = string> = { label: string; value: T };
@@ -34,7 +35,10 @@ export function Select<T extends string = string>({
       <Pressable
         accessibilityRole="button"
         onPress={() => setOpen(true)}
-        className={`flex-row items-center justify-between rounded-md border border-border bg-surface-card px-4 py-3 ${className}`}
+        className={cn(
+          'flex-row items-center justify-between rounded-md border border-border bg-surface-card px-4 py-3',
+          className
+        )}
       >
         <BodyText className={selected ? 'text-text-body' : 'text-text-subtle'}>
           {selected ? selected.label : placeholder}

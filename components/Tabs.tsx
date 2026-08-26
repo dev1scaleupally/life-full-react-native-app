@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native';
+import { cn } from './cn';
 import { BodyText } from './Typography';
 
 export type TabItem<T extends string = string> = { key: T; label: string };
@@ -12,7 +13,7 @@ export type TabsProps<T extends string = string> = {
 
 export function Tabs<T extends string = string>({ items, value, onChange, className = '' }: TabsProps<T>) {
   return (
-    <View className={`flex-row border-b border-border-subtle ${className}`}>
+    <View className={cn('flex-row border-b border-border-subtle', className)}>
       {items.map(item => {
         const active = item.key === value;
         return (

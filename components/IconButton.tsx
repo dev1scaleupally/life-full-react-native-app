@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, type PressableProps } from 'react-native';
+import { cn } from './cn';
 import { usePressed } from './usePressed';
 
 type IconButtonVariant = 'filled' | 'ghost';
@@ -39,9 +40,13 @@ export function IconButton({
       disabled={disabled}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      className={`items-center justify-center rounded-full ${sizeClasses[size]} ${
-        pressed ? pressedBg : base
-      } ${disabled ? 'opacity-50' : ''} ${className}`}
+      className={cn(
+        'items-center justify-center rounded-full',
+        sizeClasses[size],
+        pressed ? pressedBg : base,
+        disabled ? 'opacity-50' : '',
+        className
+      )}
       {...rest}
     >
       {icon}

@@ -144,10 +144,10 @@ export function OnboardingResultsScreen({
         >
           <View className="items-center gap-3">
             <Mark variant="orange" height={44} />
-            <Heading level="h1" className="text-center">
+            <Heading level="h2">
               {`You're all set, ${firstName}.`}
             </Heading>
-            <BodyText className="text-center text-lg text-text-muted">
+            <BodyText className="text-text-muted">
               This is your starting point. From here and onward with Lifefull, you'll be guided to a
               clearer picture of your life after work and find ways to get where you want to be.
             </BodyText>
@@ -155,7 +155,7 @@ export function OnboardingResultsScreen({
 
           <Card className="gap-4">
             <View className="flex-row gap-4">
-              <View className="items-start">
+              <View className="items-center ">
                 <Stat>{overallScore.toFixed(1)}</Stat>
                 <Eyebrow>Of 5.0</Eyebrow>
               </View>
@@ -178,7 +178,7 @@ export function OnboardingResultsScreen({
                 {cognitiveAlignmentScore.toFixed(1)}
               </BodyText>
             </View>
-          </Card>
+          </Card> 
 
           <View className="gap-3">
             <BodyText className="font-sans-bold uppercase tracking-wide text-brand">
@@ -203,7 +203,7 @@ export function OnboardingResultsScreen({
 
       <SafeAreaView edges={['bottom']} className="border-t border-border-subtle bg-surface-card px-6 pt-4">
         <Button
-          size="lg"
+          size="md"
           className="bg-brand-hover"
           onPress={onStartTrial}
           rightIcon={<SparkleIcon size={16} color="#FFFFFF" />}

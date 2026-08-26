@@ -41,7 +41,7 @@ export type ReflectionDomain = {
 export const DOMAINS: ReflectionDomain[] = [
   {
     key: 'cognitive_alignment',
-    name: 'Cognitive Alignment',
+    name: 'How retirement feels',
     questions: [
       {
         id: 'ca_q1',

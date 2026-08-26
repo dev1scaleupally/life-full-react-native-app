@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { cn } from './cn';
 import { BodyText } from './Typography';
 
 type BadgeTone = 'brand' | 'success' | 'info' | 'warning' | 'accent' | 'danger';
@@ -22,7 +23,7 @@ export type BadgeProps = {
 export function Badge({ tone = 'brand', children, className = '' }: BadgeProps) {
   const { bg, text } = toneClasses[tone];
   return (
-    <View className={`self-start rounded-pill px-3 py-1 ${bg} ${className}`}>
+    <View className={cn('self-start rounded-pill px-3 py-1', bg, className)}>
       <BodyText size="caption" className={`font-sans-bold uppercase tracking-wide ${text}`}>
         {children}
       </BodyText>

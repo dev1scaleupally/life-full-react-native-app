@@ -44,7 +44,7 @@ export function ReflectionsFlow({ onExit, onComplete }: ReflectionsFlowProps) {
     <View className="flex-1 bg-surface-sunken">
       <SafeAreaView edges={['top']} className="bg-surface-card">
         <OnboardingHeader
-          label="Your reflections"
+          label={domain.name}
           step={index + 1}
           total={FLAT_QUESTIONS.length}
           onBack={handleBack}
@@ -56,12 +56,12 @@ export function ReflectionsFlow({ onExit, onComplete }: ReflectionsFlowProps) {
         contentContainerClassName="gap-3 px-6 pb-8 pt-6"
         showsVerticalScrollIndicator={false}
       >
-        <BodyText
+        {/* <BodyText 
           size="sm"
           className="font-sans-bold uppercase tracking-wide text-text-muted"
         >
           {domain.name}
-        </BodyText>
+        </BodyText> */}
         <Heading level="h3">{question.text}</Heading>
 
         <View className="pt-2">

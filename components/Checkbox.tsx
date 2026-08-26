@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native';
+import { cn } from './cn';
 import { BodyText } from './Typography';
 import { usePressed } from './usePressed';
 
@@ -21,7 +22,7 @@ export function Checkbox({ checked, onChange, label, disabled, className = '' }:
       onPress={() => onChange(!checked)}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      className={`flex-row items-center gap-3 ${disabled ? 'opacity-50' : ''} ${className}`}
+      className={cn('flex-row items-center gap-3', disabled ? 'opacity-50' : '', className)}
     >
       <View
         className={`h-6 w-6 items-center justify-center rounded-sm border-2 ${
