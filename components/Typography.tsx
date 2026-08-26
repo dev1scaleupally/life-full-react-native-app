@@ -25,11 +25,21 @@ export type HeadingProps = TextProps & {
   level?: HeadingLevel;
 };
 
-export function Heading({ level = 'h1', className = '', ...rest }: HeadingProps) {
+export function Heading({
+  level = 'h1',
+  className = '',
+  // iOS's "Larger Accessibility Sizes" can scale fonts past 3x — uncapped,
+  // that blows through fixed-width headings (e.g. AccountGateScreen's
+  // max-w-[320px] intro copy). Capped, Dynamic Type still scales headings
+  // meaningfully without breaking layout.
+  maxFontSizeMultiplier = 1.3,
+  ...rest
+}: HeadingProps) {
   return (
     <Text
       accessibilityRole="header"
       className={twMerge(headingClasses[level], className)}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       {...rest}
     />
   );
@@ -49,19 +59,34 @@ export type BodyTextProps = TextProps & {
   size?: BodySize;
 };
 
-export function BodyText({ size = 'base', className = '', ...rest }: BodyTextProps) {
-  return <Text className={twMerge(bodyClasses[size], className)} {...rest} />;
+export function BodyText({
+  size = 'base',
+  className = '',
+  // Same rationale as Heading — also caps Button's label (Button renders
+  // its text via BodyText), which is what was overflowing the OAuth
+  // buttons on AccountGateScreen under Larger Accessibility Sizes.
+  maxFontSizeMultiplier = 1.5,
+  ...rest
+}: BodyTextProps) {
+  return (
+    <Text
+      className={twMerge(bodyClasses[size], className)}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
+      {...rest}
+    />
+  );
 }
 
 export type EyebrowProps = TextProps;
 
-export function Eyebrow({ className = '', ...rest }: EyebrowProps) {
+export function Eyebrow({ className = '', maxFontSizeMultiplier = 1.3, ...rest }: EyebrowProps) {
   return (
     <Text
       className={twMerge(
         'font-condensed text-sm uppercase leading-none tracking-eyebrow text-text-muted',
         className
       )}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       {...rest}
     />
   );
@@ -69,13 +94,14 @@ export function Eyebrow({ className = '', ...rest }: EyebrowProps) {
 
 export type StatProps = TextProps;
 
-export function Stat({ className = '', ...rest }: StatProps) {
+export function Stat({ className = '', maxFontSizeMultiplier = 1.2, ...rest }: StatProps) {
   return (
     <Text
       className={twMerge(
         'font-condensed-bold text-center text-5xl leading-none text-text-heading',
         className
       )}
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       {...rest}
     />
   );
