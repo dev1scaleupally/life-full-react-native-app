@@ -6,6 +6,7 @@ import { chatSaga } from './chat/chatSaga';
 import { onboardingSaga } from './onboarding/onboardingSaga';
 import { progressSaga } from './progress/progressSaga';
 import { remindersSaga } from './reminders/remindersSaga';
+import { subscriptionSaga } from './subscription/subscriptionSaga';
 import { tasksSaga } from './tasks/tasksSaga';
 
 export function* rootSaga() {
@@ -24,6 +25,7 @@ export function* rootSaga() {
     fork(tasksSaga),
     fork(remindersSaga),
     fork(progressSaga),
+    fork(subscriptionSaga),
   ]);
 
   // Load any session persisted from a previous launch, then validate/rotate

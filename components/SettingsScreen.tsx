@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import packageJson from '../package.json';
 import { Badge } from './Badge';
 import { Card } from './Card';
+import { ACCOUNT_DELETE_ITEMS, DestructiveConfirmSheet } from './DestructiveConfirmSheet';
 import { BellIcon } from './icons/BellIcon';
 import { ChevronLeft } from './icons/ChevronLeft';
 import { ChevronRight } from './icons/ChevronRight';
@@ -88,9 +89,12 @@ function Row({
 /**
  * Section 4.11 — Settings. Notification toggles are local-only right now
  * (no backend preference endpoint exists to persist them — see the note
- * where they're wired). Subscription management, data export, help/about
- * content, and account deletion are all stubs: none of those destinations
- * are built yet, and account deletion in particular needs a real backend
+ * where they're wired). "Subscription" opens the real Paywall (see
+ * screens/paywall/PaywallScreen.tsx — section 6), which shows the
+ * already-subscribed / lapsed / never-subscribed state for real. Data
+ * export, help/about content are still unbuilt stubs. Account deletion now
+ * has a real confirm step (the same DestructiveConfirmSheet the lapsed
+ * paywall uses), but `onDeleteAccount` itself still needs a real backend
  * endpoint that doesn't exist (see Section 9's "removes both the ledger and
  * transcript stores").
  */
@@ -112,6 +116,7 @@ export function SettingsScreen({
   // Local-only — see the class doc comment above.
   const [commitmentReminders, setCommitmentReminders] = useState(true);
   const [reviewPrompts, setReviewPrompts] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return (
     <View className="flex-1 bg-surface-screen">
@@ -224,7 +229,7 @@ export function SettingsScreen({
           <Row icon={<SignOutIcon size={18} />} iconBg="bg-danger-soft" title="Sign out" onPress={onSignOut} isLast />
         </Card>
 
-        <Pressable accessibilityRole="button" onPress={onDeleteAccount} className="items-center py-1">
+        <Pressable accessibilityRole="button" onPress={() => setShowDeleteConfirm(true)} className="items-center py-1">
           <BodyText className="text-danger underline">Delete my account</BodyText>
         </Pressable>
 
@@ -257,6 +262,17 @@ export function SettingsScreen({
           {`Lifefull · Version ${packageJson.version}`}
         </BodyText>
       </ScrollView>
+
+      <DestructiveConfirmSheet
+        visible={showDeleteConfirm}
+        items={ACCOUNT_DELETE_ITEMS}
+        confirmLabel="Delete everything"
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          onDeleteAccount?.();
+        }}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </View>
   );
 }

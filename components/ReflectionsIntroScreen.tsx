@@ -56,7 +56,7 @@ export function ReflectionsIntroScreen({
         </View>
 
         <Heading level="h2" className="text-center">
-          You aren't alone in this transition.
+          You’re not alone in this transition.
         </Heading>
 
         <BodyText className="mt-3.5">

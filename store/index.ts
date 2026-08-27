@@ -7,6 +7,7 @@ import { onboardingSlice } from './onboarding/onboardingSlice';
 import { progressSlice } from './progress/progressSlice';
 import { remindersSlice } from './reminders/remindersSlice';
 import { rootSaga } from './rootSaga';
+import { subscriptionSlice } from './subscription/subscriptionSlice';
 import { tasksSlice } from './tasks/tasksSlice';
 
 const sagaMiddleware = createSagaMiddleware();
@@ -19,6 +20,7 @@ export const store = configureStore({
     tasks: tasksSlice.reducer,
     reminders: remindersSlice.reducer,
     progress: progressSlice.reducer,
+    subscription: subscriptionSlice.reducer,
   },
   // redux-saga replaces thunk as the async layer; every request in
   // services/api is triggered from a saga, never a thunk.

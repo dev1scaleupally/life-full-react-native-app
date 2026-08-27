@@ -18,4 +18,7 @@ export const STORAGE_KEYS = {
    * only: goes stale if the account's name changes elsewhere, and a fresh
    * device/reinstall starts with nothing cached either. */
   accountName: 'lf_account_name',
+  /** Mock entitlement state (see services/subscription/subscriptionService.ts)
+   * — replaced by a real GET entitlement endpoint once the backend exists. */
+  mockEntitlement: 'lf_mock_entitlement',
 } as const;

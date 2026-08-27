@@ -24,9 +24,11 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { STORAGE_KEYS } from './constants/storage';
 import { RootNavigator } from './navigation/RootNavigator';
 import type { AuthMode } from './navigation/types';
+import { PaywallScreen } from './screens/paywall/PaywallScreen';
 import { progressApi } from './services/api/progressApi';
 import { ApiError, type DomainId, type OnboardingResponseEntry } from './services/api/types';
 import type { AuthAccount } from './services/auth/types';
+import { plansById } from './services/subscription/plans';
 import { store } from './store';
 import { authActions } from './store/auth/authSlice';
 import { useAppDispatch, useAppSelector } from './store/hooks';
@@ -46,7 +48,8 @@ type Screen =
   | 'results'
   | 'profile'
   | 'main'
-  | 'settings';
+  | 'settings'
+  | 'paywall';
 
 /** Everything OnboardingResultsScreen needs — computed entirely on-device
  * (utils/onboardingScoring.ts) right after reflections, before any account
@@ -133,10 +136,15 @@ function AppShell() {
   // (no GET /me exists yet to look it up).
   const [authAccount, setAuthAccount] = useState<AuthAccount | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  // Where Paywall's "Continue"/back goes once entitlement is resolved — the
+  // post-signup commit lands here on 'profile', Settings' Subscription row
+  // on 'settings' (see the effect below and onOpenSubscription).
+  const [paywallReturnTo, setPaywallReturnTo] = useState<'profile' | 'settings'>('profile');
   const dispatch = useAppDispatch();
   const submitStatus = useAppSelector(state => state.onboarding.submitStatus);
   const submitError = useAppSelector(state => state.onboarding.submitError);
   const submitResult = useAppSelector(state => state.onboarding.result);
+  const entitlement = useAppSelector(state => state.subscription.entitlement);
   // False until rootSaga's app-launch session check (hydrate + refresh) has
   // actually run — gate navigation on this, not just isAuthenticated, so a
   // real stored session doesn't flash the Welcome/login screen before
@@ -270,6 +278,14 @@ function AppShell() {
       });
   }
 
+  // Shared by Settings' "Delete my account" and the lapsed paywall's —
+  // both confirm via the same DestructiveConfirmSheet before calling this.
+  // No real backend endpoint exists yet (see Section 9's "removes both the
+  // ledger and transcript stores") — a real requirement to flag, not fake.
+  function handleDeleteAccount() {
+    console.log('[App] Delete account — no backend endpoint exists yet (needs a real requirement)');
+  }
+
   useEffect(() => {
     if (!pendingSubmitRef.current || submitStatus === 'loading') return;
     pendingSubmitRef.current = false;
@@ -299,10 +315,12 @@ function AppShell() {
         aboutYou: buildAboutYou(basicProfile),
       });
     }
-    // Paywall isn't built yet — land on Profile (same on-device numbers,
-    // now with a real account behind them) rather than stranding the user
-    // on the now-signed-in auth screen.
-    setScreen('profile');
+    // A brand-new account always has entitlement.status 'none', so this
+    // lands on the trial-offer paywall state; "Continue to Lifefull" (once
+    // subscribed) brings them to Profile with the same on-device numbers,
+    // now backed by a real account, rather than stranding them mid-flow.
+    setPaywallReturnTo('profile');
+    setScreen('paywall');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitStatus]);
 
@@ -451,7 +469,11 @@ function AppShell() {
         <SettingsScreen
           firstName={authAccount?.firstName ?? ''}
           lastName={authAccount?.lastName ?? ''}
-          subscriptionPlan={null}
+          subscriptionPlan={
+            entitlement && (entitlement.status === 'active' || entitlement.status === 'trialing') && entitlement.planId
+              ? plansById[entitlement.planId].name
+              : null
+          }
           onBack={() => setScreen('main')}
           onBackToHome={() => setScreen('main')}
           onOpenProfile={() => {
@@ -459,7 +481,10 @@ function AppShell() {
               console.error('[App] GET /progress failed opening Profile from Settings:', err);
             });
           }}
-          onOpenSubscription={() => console.log('[App] Manage subscription — no store integration built yet')}
+          onOpenSubscription={() => {
+            setPaywallReturnTo('settings');
+            setScreen('paywall');
+          }}
           onOpenDataPrivacy={() => console.log('[App] Data & privacy — no export/document built yet')}
           onOpenHelp={() => console.log('[App] Help & contact — not built yet')}
           onOpenAbout={() => console.log('[App] About Lifefull — not built yet')}
@@ -474,9 +499,13 @@ function AppShell() {
             setProfileData(null);
             setScreen('welcome');
           }}
-          onDeleteAccount={() =>
-            console.log('[App] Delete account — no backend endpoint exists yet (needs a real requirement)')
-          }
+          onDeleteAccount={handleDeleteAccount}
+        />
+      ) : screen === 'paywall' ? (
+        <PaywallScreen
+          onContinue={() => setScreen(paywallReturnTo)}
+          onBack={paywallReturnTo === 'settings' ? () => setScreen('settings') : undefined}
+          onDeleteAccount={handleDeleteAccount}
         />
       ) : null}
     </>
