@@ -102,6 +102,16 @@ export type BasicProfile = {
   primaryReasonOther: string | null;
 };
 
+/** GET /v1/auth/me — the account's identity plus everything from
+ * BasicProfile, defaulted (not merely absent) even before onboarding is
+ * ever submitted, per auth.service.ts:100. */
+export type MeResponse = {
+  id: string;
+  lastName: string;
+  email: string;
+  emailVerified: boolean;
+} & BasicProfile;
+
 export type OnboardingResponseEntry = {
   questionId: string;
   rawScore: number;

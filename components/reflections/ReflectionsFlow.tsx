@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../Button';
@@ -13,12 +13,31 @@ export type ReflectionsFlowProps = {
   onExit?: () => void;
   /** Continue pressed on the very last question. */
   onComplete?: (answers: ReflectionAnswers) => void;
+  /** Resumes mid-flow (e.g. the app was closed and reopened) instead of
+   * starting from question 1 — both provided together or not at all. */
+  initialAnswers?: ReflectionAnswers;
+  initialIndex?: number;
+  /** Fires on every answer/step change so the caller can persist a resume
+   * point (there's no account yet to save any of this server-side). Not
+   * debounced — App.tsx just writes the small JSON blob straight through. */
+  onProgress?: (answers: ReflectionAnswers, index: number) => void;
 };
 
-export function ReflectionsFlow({ onExit, onComplete }: ReflectionsFlowProps) {
+export function ReflectionsFlow({
+  onExit,
+  onComplete,
+  initialAnswers,
+  initialIndex,
+  onProgress,
+}: ReflectionsFlowProps) {
   // Owned here, once, for the life of the flow — going back never loses an answer.
-  const [answers, setAnswers] = useState<ReflectionAnswers>({});
-  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<ReflectionAnswers>(initialAnswers ?? {});
+  const [index, setIndex] = useState(initialIndex ?? 0);
+
+  useEffect(() => {
+    onProgress?.(answers, index);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, index]);
 
   const { domain, question } = FLAT_QUESTIONS[index];
   const value = answers[question.id] ?? null;

@@ -21,4 +21,10 @@ export const STORAGE_KEYS = {
   /** Mock entitlement state (see services/subscription/subscriptionService.ts)
    * — replaced by a real GET entitlement endpoint once the backend exists. */
   mockEntitlement: 'lf_mock_entitlement',
+  /** In-progress onboarding/reflections answers, so closing the app
+   * mid-questionnaire (there's no account yet to save any of this
+   * server-side) resumes exactly where it left off instead of losing
+   * everything — see App.tsx's persistPreAuthProgress. Never holds
+   * anything from the auth/signup screen itself (no passwords on disk). */
+  preAuthProgress: 'lf_pre_auth_progress',
 } as const;

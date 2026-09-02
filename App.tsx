@@ -13,7 +13,7 @@ import { Provider } from 'react-redux';
 import { IntroScreen } from './components/IntroScreen';
 import { MainTabs } from './components/MainTabs';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
-import { optionLabel, toBasicProfile, type OnboardingAnswers } from './components/onboarding/types';
+import { INITIAL_ANSWERS, optionLabel, toBasicProfile, type OnboardingAnswers } from './components/onboarding/types';
 import { OnboardingResultsScreen, type DomainResult } from './components/OnboardingResultsScreen';
 import { ProfileScreen, type ProfileDomainResult } from './components/ProfileScreen';
 import { FLAT_QUESTIONS, type ReflectionAnswers } from './components/reflections/types';
@@ -22,11 +22,15 @@ import { ReflectionsIntroScreen } from './components/ReflectionsIntroScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { STORAGE_KEYS } from './constants/storage';
+import { useAuthDeepLinks } from './hooks/useAuthDeepLinks';
+import { navigationRef } from './navigation/navigationRef';
 import { RootNavigator } from './navigation/RootNavigator';
 import type { AuthMode } from './navigation/types';
 import { PaywallScreen } from './screens/paywall/PaywallScreen';
+import { authApi } from './services/api/authApi';
 import { progressApi } from './services/api/progressApi';
 import { ApiError, type DomainId, type OnboardingResponseEntry } from './services/api/types';
+import { handleAuthDeepLink, parseAuthDeepLink } from './services/auth/deepLinks';
 import type { AuthAccount } from './services/auth/types';
 import { plansById } from './services/subscription/plans';
 import { store } from './store';
@@ -63,11 +67,32 @@ type ResultsData = {
   domainResults: DomainResult[];
 };
 
+/** Everything needed to resume the pre-auth flow (About You + reflections)
+ * after the app is closed and reopened — there's no account yet at this
+ * point, so nothing server-side to fall back on. Persisted to AsyncStorage
+ * as one small JSON blob under STORAGE_KEYS.preAuthProgress by
+ * persistPreAuthProgress below, restored once on launch, and cleared once
+ * the flow actually commits (or the user signs out). Deliberately never
+ * covers the 'auth' screen itself — no passwords on disk. */
+type PreAuthProgress = {
+  screen: Screen;
+  basicProfile: OnboardingAnswers | null;
+  onboardingStepIndex: number;
+  reflectionAnswers: ReflectionAnswers | null;
+  reflectionIndex: number;
+  resultsData: ResultsData | null;
+};
+
+/** Screens `persistPreAuthProgress` will actually save a resume point for —
+ * 'auth' is deliberately excluded (no passwords on disk); everything past
+ * it (paywall/profile/main/settings) has a real account and doesn't need
+ * this buffer at all. */
+const RESUMABLE_SCREENS: Screen[] = ['intro', 'onboarding', 'reflectionsIntro', 'reflections', 'results'];
+
 /** Everything ProfileScreen needs (spec 4.10) — reached either right after a
  * fresh signup's silent commit (real data throughout, baseline-only, no
  * deltas yet) or a returning sign-in (real domain scores from GET /progress,
- * but no name/About You — there's no GET /me yet; see the comment where
- * this gets built below). */
+ * name/About You from GET /v1/auth/me — see loadProfileFromServer below). */
 type ProfileData = {
   firstName: string;
   subtitle: string | null;
@@ -86,18 +111,31 @@ type ProfileData = {
   } | null;
 };
 
-function buildAboutYou(answers: OnboardingAnswers): NonNullable<ProfileData['aboutYou']> {
+/** Structural, not OnboardingAnswers-specific, so both the fresh-signup path
+ * (in-memory OnboardingAnswers, careerRole always a string) and a returning
+ * sign-in (GET /v1/auth/me's MeResponse, careerRole: string | null) can
+ * share this — same optionLabel() lookup either way, so a raw catalog value
+ * only ever gets turned into its display label in this one place. */
+type AboutYouSource = {
+  retirementStatus: string | null;
+  howLongRetired: string | null;
+  careerRole: string | null;
+  livingSituation: string | null;
+  location: string | null;
+};
+
+function buildAboutYou(answers: AboutYouSource): NonNullable<ProfileData['aboutYou']> {
   const retirementLabel = optionLabel('retirementStatus', answers.retirementStatus);
   const howLongLabel = optionLabel('howLongRetired', answers.howLongRetired);
   return {
     retirement: [retirementLabel, howLongLabel].filter(Boolean).join(' · ') || '—',
-    formerRole: answers.careerRole.trim() || null,
+    formerRole: answers.careerRole?.trim() || null,
     livingSituation: optionLabel('livingSituation', answers.livingSituation) ?? '—',
     location: optionLabel('location', answers.location) ?? '—',
   };
 }
 
-function buildSubtitle(answers: OnboardingAnswers): string | null {
+function buildSubtitle(answers: { careerField: string | null; ageRange: string | null }): string | null {
   const career = optionLabel('careerField', answers.careerField);
   const age = optionLabel('ageRange', answers.ageRange);
   return [career, age].filter(Boolean).join(', ') || null;
@@ -156,6 +194,87 @@ function AppShell() {
   // dispatching responsesSubmitted, cleared once the saga's outcome has
   // been handled below.
   const pendingSubmitRef = useRef(false);
+  // Set when a verify-email/reset-password link arrives while the auth
+  // stack doesn't exist yet (app cold-launched by it, or some other screen
+  // was showing) — RootNavigator's onReady below replays it once AuthStack
+  // has actually mounted and navigationRef can .navigate() within it.
+  const pendingDeepLinkUrlRef = useRef<string | null>(null);
+  // The live in-progress answers+cursor of whichever of OnboardingFlow /
+  // ReflectionsFlow is currently mounted — refs, not state, so a keystroke
+  // inside the flow doesn't re-render AppShell; only read when persisting
+  // (persistPreAuthProgress) or restoring (the effect below).
+  const onboardingProgressRef = useRef<{ answers: OnboardingAnswers; stepIndex: number } | null>(null);
+  const reflectionsProgressRef = useRef<{ answers: ReflectionAnswers; index: number } | null>(null);
+
+  // Writes (or leaves alone) the resume buffer described by PreAuthProgress
+  // above. Called on every screen change and on every in-flow answer/step
+  // change (via OnboardingFlow/ReflectionsFlow's onProgress) — the payload
+  // is a handful of short strings, so no debouncing.
+  function persistPreAuthProgress(currentScreen: Screen) {
+    if (!RESUMABLE_SCREENS.includes(currentScreen)) return;
+    const bundle: PreAuthProgress = {
+      screen: currentScreen,
+      basicProfile: onboardingProgressRef.current?.answers ?? basicProfile,
+      onboardingStepIndex: onboardingProgressRef.current?.stepIndex ?? 0,
+      reflectionAnswers: reflectionsProgressRef.current?.answers ?? reflectionAnswers,
+      reflectionIndex: reflectionsProgressRef.current?.index ?? 0,
+      resultsData,
+    };
+    AsyncStorage.setItem(STORAGE_KEYS.preAuthProgress, JSON.stringify(bundle)).catch(() => {});
+  }
+
+  // Restores a resume buffer left by a previous launch — gated on
+  // `!isAuthenticated` (and on `bootstrapped`, so that's actually known) so
+  // a genuinely signed-in returning user is never diverted backwards into
+  // onboarding by a stale local buffer; that path is handled by the
+  // bootstrap-redirect effect below instead.
+  useEffect(() => {
+    if (!bootstrapped || isAuthenticated) return;
+    (async () => {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.preAuthProgress);
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw) as PreAuthProgress;
+        if (saved.basicProfile) setBasicProfile(saved.basicProfile);
+        if (saved.reflectionAnswers) setReflectionAnswers(saved.reflectionAnswers);
+        if (saved.resultsData) setResultsData(saved.resultsData);
+        onboardingProgressRef.current = {
+          answers: saved.basicProfile ?? INITIAL_ANSWERS,
+          stepIndex: saved.onboardingStepIndex,
+        };
+        reflectionsProgressRef.current = { answers: saved.reflectionAnswers ?? {}, index: saved.reflectionIndex };
+        setScreen(saved.screen);
+      } catch {
+        // Corrupted buffer — ignore, start fresh (same fallback as accountName's cache).
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bootstrapped, isAuthenticated]);
+
+  // Persists on every screen change — covers a flow handing off to the next
+  // screen (e.g. OnboardingFlow's onComplete setting both basicProfile and
+  // the screen at once). In-flow edits within the same screen are covered
+  // separately by each flow's onProgress calling this directly.
+  useEffect(() => {
+    persistPreAuthProgress(screen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
+  // Mounted once, here, rather than scoped to the auth screen — a
+  // verify-email/reset-password link is just as likely to be tapped after
+  // the app was fully closed, or while showing onboarding/paywall/home, as
+  // while actually sitting on the auth stack. See hooks/useAuthDeepLinks.ts.
+  useAuthDeepLinks(url => {
+    const parsed = parseAuthDeepLink(url);
+    if (!parsed) return; // not a recognized auth link — same silent no-op as before
+    if (screen === 'auth' && navigationRef.isReady()) {
+      handleAuthDeepLink(url);
+      return;
+    }
+    pendingDeepLinkUrlRef.current = url;
+    setAuthMode('signin');
+    setScreen('auth');
+  });
 
   useEffect(() => {
     if (!bootstrapped || screen !== 'welcome' || !isAuthenticated) return;
@@ -230,9 +349,11 @@ function AppShell() {
   // wants 'main' instead, straight to Home, now that profileData is at
   // least populated and ready for whenever Profile is actually opened.
   function loadProfileFromServer(fallbackFirstName?: string, landOn: 'profile' | 'main' = 'profile') {
-    return progressApi
-      .get()
-      .then(progress => {
+    // GET /v1/auth/me now carries the account's name + full BasicProfile
+    // (see services/api/authApi.ts) — run alongside GET /progress rather
+    // than after it, since neither depends on the other.
+    return Promise.all([progressApi.get(), authApi.me()])
+      .then(([progress, me]) => {
         const overall = progress.overallWellbeing.at(-1);
         const overallBaseline = progress.overallWellbeing.length > 1 ? progress.overallWellbeing[0] : null;
         const cognitive = progress.cognitiveAlignment.at(-1);
@@ -241,9 +362,10 @@ function AppShell() {
         const domainScores = progress.domains.map(d => ({ domain: d.domain, score: d.points.at(-1)!.score }));
         setProfileData({
           // fallbackFirstName covers the bootstrap-restore call, made before
-          // its own setAuthAccount(cached) has actually re-rendered yet.
-          firstName: fallbackFirstName ?? authAccount?.firstName ?? '',
-          subtitle: null,
+          // its own setAuthAccount(cached) has actually re-rendered yet;
+          // me.firstName is the real, authoritative value either way.
+          firstName: me.firstName || fallbackFirstName || authAccount?.firstName || '',
+          subtitle: buildSubtitle(me),
           currentDomain: computePriorityOrder(domainScores)[0]!,
           overallScore: overall.score,
           overallBand: overall.band,
@@ -260,9 +382,7 @@ function AppShell() {
               baselineScore: baseline?.score ?? null,
             };
           }),
-          // No GET /me/profile endpoint exists to fetch a previously-saved
-          // BasicProfile — a real backend requirement, not a frontend gap.
-          aboutYou: null,
+          aboutYou: buildAboutYou(me),
         });
         setScreen(landOn);
       })
@@ -298,6 +418,10 @@ function AppShell() {
       return;
     }
     console.log('[App] onboarding buffered answers committed:', submitResult);
+    // The real ledger has it now — the local resume buffer would otherwise
+    // outlive its purpose and (worse) could resurrect stale answers if this
+    // same device ever anonymously starts onboarding again later.
+    AsyncStorage.removeItem(STORAGE_KEYS.preAuthProgress).catch(() => {});
     if (basicProfile && resultsData) {
       // Fresh signup: this commit IS the baseline, so every delta is null —
       // matches the spec's "Baseline only: shows the baseline; the delta
@@ -349,6 +473,12 @@ function AppShell() {
         <IntroScreen onBegin={() => setScreen('onboarding')} />
       ) : screen === 'onboarding' ? (
         <OnboardingFlow
+          initialAnswers={onboardingProgressRef.current?.answers}
+          initialStepIndex={onboardingProgressRef.current?.stepIndex}
+          onProgress={(answers, stepIndex) => {
+            onboardingProgressRef.current = { answers, stepIndex };
+            persistPreAuthProgress('onboarding');
+          }}
           onExit={() => setScreen('intro')}
           onComplete={async answers => {
             // Persisted so EmailFormScreen can pre-fill signup's "First name" field.
@@ -368,6 +498,12 @@ function AppShell() {
         />
       ) : screen === 'reflections' ? (
         <ReflectionsFlow
+          initialAnswers={reflectionsProgressRef.current?.answers}
+          initialIndex={reflectionsProgressRef.current?.index}
+          onProgress={(answers, index) => {
+            reflectionsProgressRef.current = { answers, index };
+            persistPreAuthProgress('reflections');
+          }}
           onExit={() => setScreen('reflectionsIntro')}
           onComplete={answers => {
             // Pre-account data handling: computed entirely on-device, no
@@ -391,6 +527,12 @@ function AppShell() {
       ) : screen === 'auth' ? (
         <RootNavigator
           initialMode={authMode}
+          onReady={() => {
+            if (!pendingDeepLinkUrlRef.current) return;
+            const url = pendingDeepLinkUrlRef.current;
+            pendingDeepLinkUrlRef.current = null;
+            handleAuthDeepLink(url);
+          }}
           onAuthResolved={account => {
             console.log('Auth resolved:', account);
             setAuthAccount(account);
@@ -492,11 +634,16 @@ function AppShell() {
           onSignOut={() => {
             dispatch(authActions.loggedOut());
             AsyncStorage.removeItem(STORAGE_KEYS.accountName).catch(() => {});
+            // Defensive — should already be empty by the time a real
+            // account can sign out, but never leave a stale buffer around.
+            AsyncStorage.removeItem(STORAGE_KEYS.preAuthProgress).catch(() => {});
             setAuthAccount(null);
             setBasicProfile(null);
             setReflectionAnswers(null);
             setResultsData(null);
             setProfileData(null);
+            onboardingProgressRef.current = null;
+            reflectionsProgressRef.current = null;
             setScreen('welcome');
           }}
           onDeleteAccount={handleDeleteAccount}

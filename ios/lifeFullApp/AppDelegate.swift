@@ -31,6 +31,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     return true
   }
+
+  // Forwards lifefull:// opens (warm app — cold launches are covered by
+  // `launchOptions` above, which RCTLinkingManager also reads) to RN's
+  // Linking module — without this, hooks/useAuthDeepLinks.ts's
+  // Linking.addEventListener('url', ...) never fires; the OS still delivers
+  // the URL to the app (visible in `log stream`), it just never reaches JS.
+  func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    return RCTLinkingManager.application(app, open: url, options: options)
+  }
 }
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {

@@ -3,6 +3,7 @@ import type {
   AppleLoginInput,
   AuthSession,
   GoogleLoginInput,
+  MeResponse,
   RegisterInput,
   TokenPair,
   VerifyEmailResult,
@@ -11,6 +12,11 @@ import type {
 export const authApi = {
   register: (input: RegisterInput) =>
     httpClient.post<AuthSession>('/auth/register', input).then(res => res.data),
+
+  /** The account's name/email plus its full BasicProfile — see App.tsx's
+   * loadProfileFromServer, the only caller (a returning sign-in has no
+   * other way to learn the signed-in account's name or "About You"). */
+  me: () => httpClient.get<MeResponse>('/auth/me').then(res => res.data),
 
   login: (email: string, password: string) =>
     httpClient.post<AuthSession>('/auth/login', { email, password }).then(res => res.data),

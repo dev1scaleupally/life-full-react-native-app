@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../Button';
@@ -22,15 +22,35 @@ export type OnboardingFlowProps = {
   onExit?: () => void;
   /** Continue pressed on the very last visible step. */
   onComplete?: (answers: OnboardingAnswers) => void;
+  /** Resumes mid-flow (e.g. the app was closed and reopened) instead of
+   * starting from question 1 — both provided together or not at all. */
+  initialAnswers?: OnboardingAnswers;
+  initialStepIndex?: number;
+  /** Fires on every answer/step change so the caller can persist a resume
+   * point (there's no account yet to save any of this server-side). Not
+   * debounced — App.tsx just writes the small JSON blob straight through. */
+  onProgress?: (answers: OnboardingAnswers, stepIndex: number) => void;
 };
 
-export function OnboardingFlow({ onExit, onComplete }: OnboardingFlowProps) {
+export function OnboardingFlow({
+  onExit,
+  onComplete,
+  initialAnswers,
+  initialStepIndex,
+  onProgress,
+}: OnboardingFlowProps) {
   // Owned here, once, for the life of the flow — going back never loses an answer.
-  const [answers, setAnswers] = useState<OnboardingAnswers>(INITIAL_ANSWERS);
-  const [stepIndex, setStepIndex] = useState(() =>
+  const [answers, setAnswers] = useState<OnboardingAnswers>(initialAnswers ?? INITIAL_ANSWERS);
+  const [stepIndex, setStepIndex] = useState(() => {
+    if (initialStepIndex != null) return initialStepIndex;
     // In case step 0 itself were ever conditionally hidden.
-    STEPS[0].visible && !STEPS[0].visible(INITIAL_ANSWERS) ? nextVisibleIndex(-1, 1, INITIAL_ANSWERS) : 0,
-  );
+    return STEPS[0].visible && !STEPS[0].visible(INITIAL_ANSWERS) ? nextVisibleIndex(-1, 1, INITIAL_ANSWERS) : 0;
+  });
+
+  useEffect(() => {
+    onProgress?.(answers, stepIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, stepIndex]);
 
   const step = STEPS[stepIndex];
   const canContinue = isStepValid(step, answers);
