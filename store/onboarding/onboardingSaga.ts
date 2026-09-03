@@ -1,7 +1,13 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { call, put, takeLatest } from 'redux-saga/effects';
 import { onboardingApi } from '../../services/api/onboardingApi';
-import { ApiError, type OnboardingCatalog, type OnboardingResult, type OnboardingSubmission } from '../../services/api/types';
+import {
+  ApiError,
+  type OnboardingCatalog,
+  type OnboardingResult,
+  type OnboardingScorePreview,
+  type OnboardingSubmission,
+} from '../../services/api/types';
 import { checkCatalogDrift } from '../../utils/onboardingCatalogCheck';
 import { onboardingActions } from './onboardingSlice';
 
@@ -36,7 +42,17 @@ function* handleResponsesSubmitted(action: PayloadAction<OnboardingSubmission>) 
   }
 }
 
+function* handleScoreRequested(action: PayloadAction<OnboardingSubmission>) {
+  try {
+    const score: OnboardingScorePreview = yield call(onboardingApi.score, action.payload);
+    yield put(onboardingActions.scoreSucceeded(score));
+  } catch (err) {
+    yield put(onboardingActions.scoreFailed({ message: errorMessage(err) }));
+  }
+}
+
 export function* onboardingSaga() {
   yield takeLatest(onboardingActions.catalogRequested.type, handleCatalogRequested);
   yield takeLatest(onboardingActions.responsesSubmitted.type, handleResponsesSubmitted);
+  yield takeLatest(onboardingActions.scoreRequested.type, handleScoreRequested);
 }

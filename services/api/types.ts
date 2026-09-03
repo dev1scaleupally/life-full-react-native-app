@@ -151,6 +151,20 @@ export type OnboardingResult = {
   assessmentId: string;
   domainScores: DomainScore[];
   priorityOrder: DomainId[];
+  cognitiveAlignmentScore: number;
+  overallWellbeingScore: number;
+};
+
+/** POST /v1/onboarding/score — same scoring engine as /onboarding/responses,
+ * but public (no auth) and writes nothing: no assessment row, no ledger
+ * entry, just answers-in/scores-out. Lets a not-yet-signed-up user's results
+ * screen show a real API-computed score instead of the on-device port in
+ * utils/onboardingScoring.ts. */
+export type OnboardingScorePreview = {
+  domainScores: DomainScore[];
+  priorityOrder: DomainId[];
+  cognitiveAlignmentScore: number;
+  overallWellbeingScore: number;
 };
 
 export type ChatStreamChunk =

@@ -17,6 +17,7 @@ const PUBLIC_PATHS = [
   '/auth/google',
   '/auth/apple',
   '/onboarding/catalog',
+  '/onboarding/score',
 ];
 
 export const httpClient = axios.create({

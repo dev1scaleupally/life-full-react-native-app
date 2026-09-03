@@ -1,5 +1,10 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { OnboardingCatalog, OnboardingResult, OnboardingSubmission } from '../../services/api/types';
+import type {
+  OnboardingCatalog,
+  OnboardingResult,
+  OnboardingScorePreview,
+  OnboardingSubmission,
+} from '../../services/api/types';
 
 export type OnboardingState = {
   catalog: OnboardingCatalog | null;
@@ -8,6 +13,11 @@ export type OnboardingState = {
   result: OnboardingResult | null;
   submitStatus: 'idle' | 'loading' | 'error';
   submitError: string | null;
+  /** POST /onboarding/score — the public, pre-signup preview. Separate from
+   * `result`/`submitStatus` above (the authenticated, persisting commit). */
+  score: OnboardingScorePreview | null;
+  scoreStatus: 'idle' | 'loading' | 'error';
+  scoreError: string | null;
 };
 
 const initialState: OnboardingState = {
@@ -17,6 +27,9 @@ const initialState: OnboardingState = {
   result: null,
   submitStatus: 'idle',
   submitError: null,
+  score: null,
+  scoreStatus: 'idle',
+  scoreError: null,
 };
 
 export const onboardingSlice = createSlice({
@@ -46,6 +59,18 @@ export const onboardingSlice = createSlice({
     submitFailed: (state, action: PayloadAction<{ message: string }>) => {
       state.submitStatus = 'error';
       state.submitError = action.payload.message;
+    },
+    scoreRequested: (state, _action: PayloadAction<OnboardingSubmission>) => {
+      state.scoreStatus = 'loading';
+      state.scoreError = null;
+    },
+    scoreSucceeded: (state, action: PayloadAction<OnboardingScorePreview>) => {
+      state.scoreStatus = 'idle';
+      state.score = action.payload;
+    },
+    scoreFailed: (state, action: PayloadAction<{ message: string }>) => {
+      state.scoreStatus = 'error';
+      state.scoreError = action.payload.message;
     },
   },
 });

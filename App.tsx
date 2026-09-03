@@ -7,7 +7,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
-import { StatusBar, View } from 'react-native';
+import { ActivityIndicator, StatusBar, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
 import { IntroScreen } from './components/IntroScreen';
@@ -37,7 +37,7 @@ import { store } from './store';
 import { authActions } from './store/auth/authSlice';
 import { useAppDispatch, useAppSelector } from './store/hooks';
 import { onboardingActions } from './store/onboarding/onboardingSlice';
-import { computePriorityOrder, scoreBand, scoreOnboarding } from './utils/onboardingScoring';
+import { computePriorityOrder, scoreBand } from './utils/onboardingScoring';
 import './global.css';
 
 // Placeholder flow routing. Swap for a real navigation library (e.g.
@@ -55,11 +55,11 @@ type Screen =
   | 'settings'
   | 'paywall';
 
-/** Everything OnboardingResultsScreen needs — computed entirely on-device
- * (utils/onboardingScoring.ts) right after reflections, before any account
- * exists. POST /onboarding/responses re-derives the authoritative version of
- * these same numbers server-side once the buffered answers are committed
- * post-signup, but the app never waits on that to show results. */
+/** Everything OnboardingResultsScreen needs — fetched from the public POST
+ * /onboarding/score right after reflections, before any account exists (see
+ * the ReflectionsFlow onComplete handler below). POST /onboarding/responses
+ * re-derives the authoritative version of these same numbers server-side
+ * once the buffered answers are committed post-signup. */
 type ResultsData = {
   overallScore: number;
   overallBand: string;
@@ -188,6 +188,9 @@ function AppShell() {
   const submitStatus = useAppSelector(state => state.onboarding.submitStatus);
   const submitError = useAppSelector(state => state.onboarding.submitError);
   const submitResult = useAppSelector(state => state.onboarding.result);
+  const scoreStatus = useAppSelector(state => state.onboarding.scoreStatus);
+  const scoreError = useAppSelector(state => state.onboarding.scoreError);
+  const score = useAppSelector(state => state.onboarding.score);
   const entitlement = useAppSelector(state => state.subscription.entitlement);
   // False until rootSaga's app-launch session check (hydrate + refresh) has
   // actually run — gate navigation on this, not just isAuthenticated, so a
@@ -200,6 +203,9 @@ function AppShell() {
   // dispatching responsesSubmitted, cleared once the saga's outcome has
   // been handled below.
   const pendingSubmitRef = useRef(false);
+  // Same fire-and-forget pattern, for the public score-preview request
+  // (ReflectionsFlow's onComplete below) rather than the authenticated commit.
+  const pendingScoreRef = useRef(false);
   // Set when a verify-email/reset-password link arrives while the auth
   // stack doesn't exist yet (app cold-launched by it, or some other screen
   // was showing) — RootNavigator's onReady below replays it once AuthStack
@@ -254,6 +260,20 @@ function AppShell() {
         // that isn't (currently) considered resumable; just leave it on
         // the 'welcome' default instead.
         if (RESUMABLE_SCREENS.includes(saved.screen)) setScreen(saved.screen);
+        // Edge case: the app closed while POST /onboarding/score (dispatched
+        // by ReflectionsFlow's onComplete) was still in flight — screen was
+        // 'results' but resultsData never arrived to be saved. Resuming into
+        // 'results' with nothing to show would otherwise strand the user on
+        // the loading spinner forever; re-fire the request instead.
+        if (saved.screen === 'results' && !saved.resultsData && saved.basicProfile && saved.reflectionAnswers) {
+          const responses: OnboardingResponseEntry[] = FLAT_QUESTIONS.map(({ question }) => ({
+            questionId: question.id,
+            rawScore: saved.reflectionAnswers![question.id],
+            userText: null,
+          }));
+          pendingScoreRef.current = true;
+          dispatch(onboardingActions.scoreRequested({ basicProfile: toBasicProfile(saved.basicProfile), responses }));
+        }
       } catch {
         // Corrupted buffer — ignore, start fresh (same fallback as accountName's cache).
       }
@@ -314,6 +334,28 @@ function AppShell() {
           } catch {
             // Corrupted cache — ignore, proceed with no cached name.
           }
+        }
+      }
+      // A previous launch may have signed in successfully but then failed to
+      // commit the buffered onboarding answers (e.g. a network blip right
+      // after auth resolved) — the pre-auth buffer is only ever cleared on a
+      // successful commit (see the submitStatus effect above), so if it's
+      // still here now that there's a real session, retry it before doing
+      // anything else. Confirmed safe to retry: POST /onboarding/responses
+      // is idempotent per-user (returns the existing assessment rather than
+      // erroring or duplicating).
+      const pendingRaw = await AsyncStorage.getItem(STORAGE_KEYS.preAuthProgress);
+      if (pendingRaw) {
+        try {
+          const pending = JSON.parse(pendingRaw) as PreAuthProgress;
+          if (pending.basicProfile && pending.reflectionAnswers) {
+            if (!basicProfile) setBasicProfile(pending.basicProfile);
+            if (!reflectionAnswers) setReflectionAnswers(pending.reflectionAnswers);
+            commitOnboarding(pending.basicProfile, pending.reflectionAnswers);
+            return;
+          }
+        } catch {
+          // Corrupted buffer — ignore, fall through to the normal path below.
         }
       }
       // A restored session doesn't tell us whether this user ever finished
@@ -427,14 +469,47 @@ function AppShell() {
     console.log('[App] Delete account — no backend endpoint exists yet (needs a real requirement)');
   }
 
+  // Turns a successful POST /onboarding/score into ResultsData — screen is
+  // already 'results' by the time this fires (set right after dispatching
+  // scoreRequested); resultsData staying null until this resolves is what
+  // drives the loading state in the render below.
+  useEffect(() => {
+    if (!pendingScoreRef.current || scoreStatus === 'loading') return;
+    pendingScoreRef.current = false;
+    if (scoreStatus === 'error') {
+      // Nothing safe to show — stays on the loading state. A real gap (no
+      // retry/error UI here yet), same category as the commit-failure one below.
+      console.error('[App] POST /onboarding/score failed:', scoreError);
+      return;
+    }
+    if (!score) return;
+    setResultsData({
+      overallScore: score.overallWellbeingScore,
+      // The API doesn't return a band for the overall score (only per-domain
+      // bands) — scoreBand() is a pure threshold->label lookup, not scoring
+      // logic, so keeping it client-side here is just presentation, not a
+      // reimplementation of the engine.
+      overallBand: scoreBand(score.overallWellbeingScore),
+      cognitiveAlignmentScore: score.cognitiveAlignmentScore,
+      domainResults: score.priorityOrder.map(domain => {
+        const d = score.domainScores.find(x => x.domain === domain)!;
+        return { domain: d.domain, score: d.score, band: d.band };
+      }),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoreStatus]);
+
   useEffect(() => {
     if (!pendingSubmitRef.current || submitStatus === 'loading') return;
     pendingSubmitRef.current = false;
     if (submitStatus === 'error') {
-      // The on-device preview is already on screen — this is the silent
-      // background commit failing, not the user-visible results. Retrying
-      // it isn't wired yet, so this is a real gap: the buffered answers
-      // stay local until something retries the commit.
+      // The preview (from POST /onboarding/score) is already on screen —
+      // this is the silent background commit failing, not the user-visible
+      // results. No immediate in-session retry, but the pre-auth buffer is
+      // deliberately left untouched here (not cleared below), so the
+      // bootstrap effect retries it automatically on next launch — see its
+      // "previous launch may have signed in but failed to commit" comment.
+      // Confirmed safe: POST /onboarding/responses is idempotent per-user.
       console.error('[App] onboarding commit API error:', submitError);
       return;
     }
@@ -443,20 +518,26 @@ function AppShell() {
     // outlive its purpose and (worse) could resurrect stale answers if this
     // same device ever anonymously starts onboarding again later.
     AsyncStorage.removeItem(STORAGE_KEYS.preAuthProgress).catch(() => {});
-    if (basicProfile && resultsData) {
+    if (basicProfile && submitResult) {
       // Fresh signup: this commit IS the baseline, so every delta is null —
       // matches the spec's "Baseline only: shows the baseline; the delta
-      // appears after the first re-administration."
+      // appears after the first re-administration." Built from submitResult
+      // (the commit's own authoritative response), not the pre-signup
+      // resultsData preview — same numbers in practice, but this is the
+      // real, just-persisted copy.
       setProfileData({
         firstName: authAccount?.firstName || basicProfile.firstName.trim(),
         subtitle: buildSubtitle(basicProfile),
-        currentDomain: resultsData.domainResults[0]!.domain,
-        overallScore: resultsData.overallScore,
-        overallBand: resultsData.overallBand,
+        currentDomain: submitResult.priorityOrder[0]!,
+        overallScore: submitResult.overallWellbeingScore,
+        overallBand: scoreBand(submitResult.overallWellbeingScore),
         overallBaselineScore: null,
-        cognitiveAlignmentScore: resultsData.cognitiveAlignmentScore,
+        cognitiveAlignmentScore: submitResult.cognitiveAlignmentScore,
         cognitiveAlignmentBaselineScore: null,
-        domainResults: resultsData.domainResults.map(d => ({ ...d, baselineScore: null })),
+        domainResults: submitResult.priorityOrder.map(domain => {
+          const d = submitResult.domainScores.find(x => x.domain === domain)!;
+          return { domain: d.domain, score: d.score, band: d.band, baselineScore: null };
+        }),
         aboutYou: buildAboutYou(basicProfile),
       });
     }
@@ -527,21 +608,31 @@ function AppShell() {
           }}
           onExit={() => setScreen('reflectionsIntro')}
           onComplete={answers => {
-            // Pre-account data handling: computed entirely on-device, no
-            // network call, no account required yet — buffered here until
-            // sign-up actually commits it (see onAuthResolved below). If the
-            // user abandons before signing in, this buffer just never gets
-            // committed; nothing was ever sent.
+            // Pre-account data handling: no account required yet, but the
+            // score itself now comes from the real public POST
+            // /onboarding/score (see the scoreStatus effect above) rather
+            // than an on-device reimplementation of the scoring engine.
+            // Everything here is still just buffered until sign-up actually
+            // commits it (see onAuthResolved below) — if the user abandons
+            // before signing in, nothing was ever persisted.
             setReflectionAnswers(answers);
-            const scored = scoreOnboarding(answers);
-            setResultsData({
-              overallScore: scored.overallWellbeingScore,
-              overallBand: scoreBand(scored.overallWellbeingScore),
-              cognitiveAlignmentScore: scored.cognitiveAlignmentScore,
-              domainResults: scored.priorityOrder.map(
-                domain => scored.domainScores.find(d => d.domain === domain)!,
-              ),
-            });
+            if (!basicProfile) {
+              // Shouldn't happen — reflections is only reachable after
+              // onboarding sets this — but there's nothing safe to score
+              // without it.
+              console.error('[App] ReflectionsFlow completed with no basicProfile — cannot request a score');
+              return;
+            }
+            const responses: OnboardingResponseEntry[] = FLAT_QUESTIONS.map(({ question }) => ({
+              questionId: question.id,
+              rawScore: answers[question.id],
+              userText: null,
+            }));
+            pendingScoreRef.current = true;
+            dispatch(onboardingActions.scoreRequested({ basicProfile: toBasicProfile(basicProfile), responses }));
+            // resultsData is still null at this point — screen shows a
+            // loading state (see the render branch below) until the
+            // scoreStatus effect above populates it.
             setScreen('results');
           }}
         />
@@ -583,6 +674,13 @@ function AppShell() {
             loadProfileFromServer(undefined, 'main');
           }}
         />
+      ) : screen === 'results' && !resultsData ? (
+        // Between dispatching scoreRequested and it resolving — POST
+        // /onboarding/score is a real network call now, unlike the old
+        // synchronous on-device version, so there's a brief real gap here.
+        <View className="flex-1 items-center justify-center bg-surface-screen">
+          <ActivityIndicator size="large" color="#A2571F" />
+        </View>
       ) : screen === 'results' && resultsData ? (
         <OnboardingResultsScreen
           firstName={basicProfile?.firstName.trim() || 'there'}
