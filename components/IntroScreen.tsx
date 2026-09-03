@@ -82,7 +82,7 @@ export function IntroScreen({ onBegin }: IntroScreenProps) {
 
           <View className="gap-3">
             <BodyText size="xs">
-              <Text className="font-sans-bold text-text-heading">
+              <Text className="font-sans-bold text- text-heading">
                 What Lifefull does:{' '}
               </Text>
               help you reflect on what matters next and turn it into small

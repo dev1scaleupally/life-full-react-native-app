@@ -72,7 +72,22 @@ export type DomainId =
 export type OnboardingCatalog = {
   catalogVersion: string;
   layerWeights: { behavior: number; thought: number; feeling: number };
-  sequencing: Record<string, unknown>;
+  sequencing: {
+    resourceAwarenessAlwaysLast: boolean;
+    anchorBoost: { section: string; value: number };
+    focusAreaOverride: { range: [number, number]; value: number };
+  };
+  scoreBands: Array<{ min: number; max: number; state: string }>;
+  /** Field ids are snake_case (first_name, age_range, ...) — see
+   * utils/onboardingCatalogCheck.ts's FIELD_ID_MAP for the camelCase
+   * OnboardingAnswers key each one corresponds to. */
+  basicProfileFields: Array<{
+    id: string;
+    label: string;
+    type: string;
+    required: boolean;
+    options?: Array<{ value: string; label: string }>;
+  }>;
   sections: Array<{
     id: string;
     scoredForSequencing: boolean;
@@ -80,6 +95,7 @@ export type OnboardingCatalog = {
       id: string;
       layer: 'behavior' | 'thought' | 'feeling';
       coding: 'standard' | 'reverse';
+      weight: number;
       text: string;
     }>;
   }>;

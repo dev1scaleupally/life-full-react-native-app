@@ -3,6 +3,7 @@ import { tokenStore } from '../services/api/tokenStore';
 import { authActions } from './auth/authSlice';
 import { authSaga } from './auth/authSaga';
 import { chatSaga } from './chat/chatSaga';
+import { onboardingActions } from './onboarding/onboardingSlice';
 import { onboardingSaga } from './onboarding/onboardingSaga';
 import { progressSaga } from './progress/progressSaga';
 import { remindersSaga } from './reminders/remindersSaga';
@@ -34,4 +35,11 @@ export function* rootSaga() {
   // listening for this dispatch to be caught.
   yield call([tokenStore, tokenStore.hydrate]);
   yield put(authActions.refreshRequested());
+
+  // /onboarding/catalog is a public route (see httpClient.ts's
+  // PUBLIC_PATHS) — fetched on every launch purely so onboardingSaga's
+  // drift check runs against whatever the backend currently serves; the
+  // hardcoded STEPS/DOMAINS drive the actual UI either way, so this never
+  // blocks anything and never needs awaiting.
+  yield put(onboardingActions.catalogRequested());
 }

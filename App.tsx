@@ -83,11 +83,17 @@ type PreAuthProgress = {
   resultsData: ResultsData | null;
 };
 
-/** Screens `persistPreAuthProgress` will actually save a resume point for —
- * 'auth' is deliberately excluded (no passwords on disk); everything past
- * it (paywall/profile/main/settings) has a real account and doesn't need
- * this buffer at all. */
-const RESUMABLE_SCREENS: Screen[] = ['intro', 'onboarding', 'reflectionsIntro', 'reflections', 'results'];
+/** Screens `persistPreAuthProgress` will actually save — and restore into —
+ * a resume point for. 'intro' is deliberately excluded even though it sits
+ * between 'welcome' and 'onboarding': it carries no answers of its own (the
+ * very first onboarding question hasn't been reached yet), so resuming
+ * straight into it on next launch is indistinguishable from just dropping
+ * the user into IntroScreen unannounced — the same thing landing on
+ * 'welcome' first (and its own "Get started") avoids for a fresh install.
+ * 'auth' is excluded too (no passwords on disk); everything past it
+ * (paywall/profile/main/settings) has a real account and doesn't need this
+ * buffer at all. */
+const RESUMABLE_SCREENS: Screen[] = ['onboarding', 'reflectionsIntro', 'reflections', 'results'];
 
 /** Everything ProfileScreen needs (spec 4.10) — reached either right after a
  * fresh signup's silent commit (real data throughout, baseline-only, no
@@ -243,7 +249,11 @@ function AppShell() {
           stepIndex: saved.onboardingStepIndex,
         };
         reflectionsProgressRef.current = { answers: saved.reflectionAnswers ?? {}, index: saved.reflectionIndex };
-        setScreen(saved.screen);
+        // Guards against a buffer written by an older build that still
+        // saved 'intro' as a resume point — never resume into a screen
+        // that isn't (currently) considered resumable; just leave it on
+        // the 'welcome' default instead.
+        if (RESUMABLE_SCREENS.includes(saved.screen)) setScreen(saved.screen);
       } catch {
         // Corrupted buffer — ignore, start fresh (same fallback as accountName's cache).
       }
@@ -308,9 +318,10 @@ function AppShell() {
       }
       // A restored session doesn't tell us whether this user ever finished
       // onboarding — loadProfileFromServer is the thing that actually
-      // knows, and routes to 'intro' itself when it doesn't find anything.
-      // Progress found -> straight to Home, not Profile.
-      loadProfileFromServer(cachedFirstName, 'main');
+      // knows. Progress found -> straight to Home, not Profile; incomplete
+      // -> Welcome, not straight into IntroScreen — opening the app should
+      // never drop the user into the middle of onboarding unannounced.
+      loadProfileFromServer(cachedFirstName, 'main', 'welcome');
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bootstrapped, isAuthenticated]);
@@ -348,7 +359,17 @@ function AppShell() {
   // 'profile' (that's the point of tapping it); a login/session-restore
   // wants 'main' instead, straight to Home, now that profileData is at
   // least populated and ready for whenever Profile is actually opened.
-  function loadProfileFromServer(fallbackFirstName?: string, landOn: 'profile' | 'main' = 'profile') {
+  function loadProfileFromServer(
+    fallbackFirstName?: string,
+    landOn: 'profile' | 'main' = 'profile',
+    // Where the 409 "onboarding not completed" case below sends the user.
+    // The app-launch/session-restore call site wants 'welcome' — opening
+    // the app should never drop straight into IntroScreen unannounced, only
+    // ever from Welcome's own "Get started". Every other caller (a fresh
+    // interactive sign-in, or Home/Settings' Profile icon) is already
+    // well past Welcome, so 'intro' is still the right landing there.
+    onIncomplete: 'welcome' | 'intro' = 'intro',
+  ) {
     // GET /v1/auth/me now carries the account's name + full BasicProfile
     // (see services/api/authApi.ts) — run alongside GET /progress rather
     // than after it, since neither depends on the other.
@@ -389,7 +410,7 @@ function AppShell() {
       .catch(err => {
         if (err instanceof ApiError && err.statusCode === 409) {
           console.log('[App] GET /progress: onboarding not completed yet — starting fresh');
-          setScreen('intro');
+          setScreen(onIncomplete);
           return;
         }
         // A genuine failure (network, 5xx) — nothing safe to route to, so

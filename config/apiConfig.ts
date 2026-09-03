@@ -7,6 +7,7 @@
  * server (use your machine's LAN IP, not localhost, when testing on a
  * physical device or a simulator that can't reach the host's loopback).
  */
+// export const API_BASE_URL = 'https://lifefull-apis-dev.scaleupdevops.in';
 export const API_BASE_URL = 'http://localhost:3000';
 
 export const isApiConfigured = () => API_BASE_URL.length > 0;

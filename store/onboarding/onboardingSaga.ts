@@ -2,6 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import { call, put, takeLatest } from 'redux-saga/effects';
 import { onboardingApi } from '../../services/api/onboardingApi';
 import { ApiError, type OnboardingCatalog, type OnboardingResult, type OnboardingSubmission } from '../../services/api/types';
+import { checkCatalogDrift } from '../../utils/onboardingCatalogCheck';
 import { onboardingActions } from './onboardingSlice';
 
 function errorMessage(err: unknown): string {
@@ -11,6 +12,15 @@ function errorMessage(err: unknown): string {
 function* handleCatalogRequested() {
   try {
     const catalog: OnboardingCatalog = yield call(onboardingApi.getCatalog);
+    // components/onboarding/types.ts's STEPS and components/reflections/
+    // types.ts's DOMAINS are hand-copied from this same catalog, not
+    // rendered from it live — this is the ongoing check that they haven't
+    // silently drifted apart. Warn-only: the hardcoded copies remain what
+    // actually drives the form/scoring either way.
+    const issues = checkCatalogDrift(catalog);
+    if (issues.length > 0) {
+      console.warn(`[onboardingSaga] GET /onboarding/catalog drifted from the hardcoded STEPS/DOMAINS:\n${issues.join('\n')}`);
+    }
     yield put(onboardingActions.catalogSucceeded(catalog));
   } catch (err) {
     yield put(onboardingActions.catalogFailed({ message: errorMessage(err) }));

@@ -23,12 +23,14 @@ const DOMAIN_ORDER: DomainId[] = [
   'resource_awareness',
 ];
 
-/** GET /onboarding/catalog's layerWeights — behavior/thought/feeling. */
-const LAYER_WEIGHTS: Record<Layer, number> = { behavior: 0.4, thought: 0.35, feeling: 0.25 };
+/** GET /onboarding/catalog's layerWeights — behavior/thought/feeling.
+ * Exported for utils/onboardingCatalogCheck.ts's drift check only — nothing
+ * else outside this file should need these three. */
+export const LAYER_WEIGHTS: Record<Layer, number> = { behavior: 0.4, thought: 0.35, feeling: 0.25 };
 
 /** GET /onboarding/catalog's sequencing config. */
-const ANCHOR_BOOST: { section: DomainId; value: number } = { section: 'core_drivers', value: 0.5 };
-const FOCUS_AREA_OVERRIDE: { range: [number, number]; value: number } = { range: [1, 1.99], value: 1 };
+export const ANCHOR_BOOST: { section: DomainId; value: number } = { section: 'core_drivers', value: 0.5 };
+export const FOCUS_AREA_OVERRIDE: { range: [number, number]; value: number } = { range: [1, 1.99], value: 1 };
 
 export type ScoreBand = 'Focus area' | 'Building' | 'Steady' | 'Thriving';
 
