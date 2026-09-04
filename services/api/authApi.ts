@@ -5,6 +5,7 @@ import type {
   GoogleLoginInput,
   MeResponse,
   RegisterInput,
+  ResetPasswordResult,
   TokenPair,
   VerifyEmailResult,
 } from './types';
@@ -29,6 +30,14 @@ export const authApi = {
 
   resendVerification: (email: string) =>
     httpClient.post<{ ok: true }>('/auth/resend-verification', { email }).then(res => res.data),
+
+  /** Always resolves { ok: true } — the backend never reveals whether the
+   * email matches an account, same pattern as resendVerification above. */
+  forgotPassword: (email: string) =>
+    httpClient.post<{ ok: true }>('/auth/forgot-password', { email }).then(res => res.data),
+
+  resetPassword: (token: string, password: string) =>
+    httpClient.post<ResetPasswordResult>('/auth/reset-password', { token, password }).then(res => res.data),
 
   google: (input: GoogleLoginInput) =>
     httpClient.post<AuthSession>('/auth/google', input).then(res => res.data),

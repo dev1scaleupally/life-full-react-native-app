@@ -20,6 +20,21 @@ export type AuthState = {
 
   resendVerificationStatus: 'idle' | 'loading' | 'success' | 'error';
   resendVerificationError: string | null;
+
+  forgotPasswordStatus: 'idle' | 'loading' | 'success' | 'error';
+  forgotPasswordError: string | null;
+
+  resetPasswordStatus: 'idle' | 'loading' | 'success' | 'error';
+  resetPasswordError: string | null;
+  /** Set on a successful reset — the only way the screen learns which
+   * address to prefill the sign-in screen with, since NewPassword's route
+   * carries just a token (see deepLinks.ts). */
+  resetPasswordEmail: string | null;
+  /** Set instead of resetPasswordError specifically when the token had
+   * expired (410) — lets the screen route back to ForgotPassword with the
+   * email prefilled rather than just showing a banner, mirroring
+   * EmailVerifyScreen's 410 handling. */
+  resetPasswordExpiredEmail: string | null;
 };
 
 const initialState: AuthState = {
@@ -33,6 +48,12 @@ const initialState: AuthState = {
   verifyEmailError: null,
   resendVerificationStatus: 'idle',
   resendVerificationError: null,
+  forgotPasswordStatus: 'idle',
+  forgotPasswordError: null,
+  resetPasswordStatus: 'idle',
+  resetPasswordError: null,
+  resetPasswordEmail: null,
+  resetPasswordExpiredEmail: null,
 };
 
 export const authSlice = createSlice({
@@ -125,6 +146,37 @@ export const authSlice = createSlice({
     resendVerificationFailed: (state, action: PayloadAction<{ message: string }>) => {
       state.resendVerificationStatus = 'error';
       state.resendVerificationError = action.payload.message;
+    },
+
+    forgotPasswordRequested: (state, _action: PayloadAction<{ email: string }>) => {
+      state.forgotPasswordStatus = 'loading';
+      state.forgotPasswordError = null;
+    },
+    forgotPasswordSucceeded: state => {
+      state.forgotPasswordStatus = 'success';
+    },
+    forgotPasswordFailed: (state, action: PayloadAction<{ message: string }>) => {
+      state.forgotPasswordStatus = 'error';
+      state.forgotPasswordError = action.payload.message;
+    },
+
+    resetPasswordRequested: (state, _action: PayloadAction<{ token: string; password: string }>) => {
+      state.resetPasswordStatus = 'loading';
+      state.resetPasswordError = null;
+      state.resetPasswordExpiredEmail = null;
+    },
+    resetPasswordSucceeded: (state, action: PayloadAction<{ email: string }>) => {
+      state.resetPasswordStatus = 'success';
+      state.resetPasswordEmail = action.payload.email;
+    },
+    resetPasswordFailed: (state, action: PayloadAction<{ message: string }>) => {
+      state.resetPasswordStatus = 'error';
+      state.resetPasswordError = action.payload.message;
+    },
+    /** The 410 case specifically — see resetPasswordExpiredEmail's comment above. */
+    resetPasswordExpired: (state, action: PayloadAction<{ email: string }>) => {
+      state.resetPasswordStatus = 'error';
+      state.resetPasswordExpiredEmail = action.payload.email;
     },
   },
 });

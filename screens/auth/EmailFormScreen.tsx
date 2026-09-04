@@ -10,7 +10,7 @@ import { useAuthResolution } from '../../navigation/AuthResolutionContext';
 import type { AuthStackParamList } from '../../navigation/types';
 import { authActions } from '../../store/auth/authSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { isValidEmail, isValidPassword } from '../../utils/validators';
+import { isValidEmail, isValidPassword, MIN_PASSWORD_LENGTH } from '../../utils/validators';
 import { AuthBanner } from './AuthBanner';
 import { AuthShell } from './AuthShell';
 import { PasswordVisibilityToggle } from './PasswordVisibilityToggle';
@@ -91,7 +91,9 @@ export function EmailFormScreen({ route, navigation }: Props) {
         return isValidEmail(value) ? undefined : 'Enter a valid email address.';
       case 'password':
         if (!value) return 'Enter your password.';
-        return isSignup && !isValidPassword(value) ? 'Use at least 10 characters.' : undefined;
+        return isSignup && !isValidPassword(value)
+          ? `Use at least ${MIN_PASSWORD_LENGTH} characters.`
+          : undefined;
       case 'confirmPassword':
         if (!isSignup) return undefined;
         if (!value) return 'Confirm your password.';
@@ -111,10 +113,21 @@ export function EmailFormScreen({ route, navigation }: Props) {
       console.error(`[EmailFormScreen] ${isSignup ? 'register' : 'login'} API error:`, authError);
       setBanner(authError ?? 'Something went wrong. Please try again.');
     } else if (isAuthenticated && userId) {
-      // Resolve immediately, verified or not — matches the backend's own
-      // design ("the app never blocks sign-in on verification"). There's no
-      // GET /me yet, so most of AuthAccount is best-effort: real for
-      // signup (the user just typed it), blank for sign-in.
+      if (isSignup && !emailVerified) {
+        // A fresh signup: the session exists (isAuthenticated is real — the
+        // backend never blocks *sign-in* on verification) but the user
+        // hasn't confirmed their address yet, so route to the waiting
+        // screen instead of straight into the app. Verifying signs them out
+        // of this interstitial (deepLinks.ts sends them to EmailForm's
+        // sign-in mode, not resolveAuth) — they resolve for real on that
+        // next, deliberate sign-in.
+        navigation.navigate('EmailVerify', { email: fields.email });
+        return;
+      }
+      // Sign-in (or a signup that already came back verified) resolves
+      // immediately — the backend never blocks *sign-in* on verification.
+      // There's no GET /me yet, so most of AuthAccount is best-effort: real
+      // for signup (the user just typed it), blank for sign-in.
       resolveAuth({
         id: userId,
         email: fields.email,
@@ -205,13 +218,13 @@ export function EmailFormScreen({ route, navigation }: Props) {
         </BodyText>
       </View>
 
-      {banner ? <AuthBanner variant="danger">{banner}</AuthBanner> : null}
-      {verifiedBanner ? (
+      {banner ? (
+        <AuthBanner variant="danger">{banner}</AuthBanner>
+      ) : verifiedBanner ? (
         <AuthBanner variant="success">
           Your email is verified. Sign in to pick up where you left off.
         </AuthBanner>
-      ) : null}
-      {resetBanner ? (
+      ) : resetBanner ? (
         <AuthBanner variant="success">Your password is updated. Sign in with the new one.</AuthBanner>
       ) : null}
 

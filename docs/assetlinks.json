@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.lifefullapp",
+      "sha256_cert_fingerprints": [
+        "47:0F:71:79:F4:AA:2D:33:CF:97:B7:2F:19:4C:05:46:87:CB:44:AA:24:EB:85:49:EC:33:6F:0A:DE:E8:00:73",
+        "A2:7D:96:E2:01:EB:1B:F6:A7:47:07:9D:FA:DB:0D:A5:76:2F:29:26:E7:21:F5:22:C0:BB:C9:6D:05:F5:5A:98",
+        "FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C"
+      ]
+    }
+  }
+]

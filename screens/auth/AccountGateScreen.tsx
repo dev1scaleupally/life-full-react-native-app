@@ -10,7 +10,6 @@ import { BodyText, Heading } from '../../components/Typography';
 import type { AuthStackParamList } from '../../navigation/types';
 import { useAuthResolution } from '../../navigation/AuthResolutionContext';
 import { signInWithApple } from '../../services/auth/appleAuth';
-import { upsertOAuthAccount } from '../../services/auth/authService';
 import { isUserCancelledGoogleSignIn, signInWithGoogle } from '../../services/auth/googleAuth';
 import { authActions } from '../../store/auth/authSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -34,20 +33,24 @@ export function AccountGateScreen({ route, navigation }: Props) {
   const emailVerified = useAppSelector(state => state.auth.emailVerified);
   const isSignup = mode === 'signup';
   const verb = isSignup ? 'Continue' : 'Sign in';
-  // Set right before dispatching googleLoginRequested, cleared once that
-  // dispatch's outcome has been handled below — carries the real
-  // name/email Google's own sign-in sheet returned (the backend's session
-  // response doesn't echo them back, same gap as email/password sign-in).
-  const pendingGoogleRef = useRef<{ email: string; firstName: string; lastName: string } | null>(null);
+  // Set right before dispatching googleLoginRequested/appleLoginRequested,
+  // cleared once that dispatch's outcome has been handled below — carries
+  // the real name/email the native sign-in sheet returned (the backend's
+  // session response doesn't echo them back, same gap as email/password
+  // sign-in). One ref for both providers since they share this same effect.
+  const pendingOAuthRef = useRef<
+    { provider: 'google' | 'apple'; email: string; firstName: string; lastName: string } | null
+  >(null);
 
   useEffect(() => {
-    if (!pendingGoogleRef.current || authStatus === 'loading') return;
-    const profile = pendingGoogleRef.current;
-    pendingGoogleRef.current = null;
+    if (!pendingOAuthRef.current || authStatus === 'loading') return;
+    const profile = pendingOAuthRef.current;
+    pendingOAuthRef.current = null;
     setOauthBusy(null);
+    const providerLabel = profile.provider === 'google' ? 'Google' : 'Apple';
     if (authStatus === 'error') {
-      console.error('[AccountGateScreen] google login API error:', authError);
-      setOauthError(authError ?? "We couldn't complete Google sign-in. Try again, or use email instead.");
+      console.error(`[AccountGateScreen] ${profile.provider} login API error:`, authError);
+      setOauthError(authError ?? `We couldn't complete ${providerLabel} sign-in. Try again, or use email instead.`);
       return;
     }
     if (isAuthenticated && userId) {
@@ -58,7 +61,7 @@ export function AccountGateScreen({ route, navigation }: Props) {
         lastName: profile.lastName,
         emailVerified: emailVerified ?? true,
         subscriptionStatus: 'never_subscribed',
-        provider: 'google',
+        provider: profile.provider,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,7 +80,8 @@ export function AccountGateScreen({ route, navigation }: Props) {
         }
         // Resolved by the effect above, once authStatus leaves 'loading' —
         // dispatch is fire-and-forget, the saga does the actual POST /auth/google.
-        pendingGoogleRef.current = {
+        pendingOAuthRef.current = {
+          provider: 'google',
           email: profile.email,
           firstName: profile.firstName,
           lastName: profile.lastName,
@@ -96,24 +100,37 @@ export function AccountGateScreen({ route, navigation }: Props) {
       return;
     }
 
-    // Apple: still on the mock backend (services/auth/authService) — not yet
-    // switched over to authActions.appleLoginRequested.
+    // Apple — same real POST /auth/apple + resolution shape as Google above.
     try {
       const profile = await signInWithApple();
-      if (!profile) return; // user backed out of the native sheet — not an error
-      const result = await upsertOAuthAccount({ provider, ...profile });
-      if (result.ok) {
-        resolveAuth(result.account);
+      if (!profile) {
+        setOauthBusy(null);
+        return; // user backed out of the native sheet — not an error
       }
+      pendingOAuthRef.current = {
+        provider: 'apple',
+        email: profile.email,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+      };
+      dispatch(
+        authActions.appleLoginRequested({
+          identityToken: profile.identityToken,
+          // Apple only ever sends the name on the account's first
+          // authorization — an empty string here isn't "no name", it's
+          // "didn't send one this time", so don't pass it as if it were real.
+          firstName: profile.firstName || undefined,
+          lastName: profile.lastName || undefined,
+        }),
+      );
     } catch (err) {
+      setOauthBusy(null);
       const message = err instanceof Error ? err.message : '';
       setOauthError(
         message.includes('not configured yet')
           ? message
           : "We couldn't complete Apple sign-in. Try again, or use email instead.",
       );
-    } finally {
-      setOauthBusy(null);
     }
   }
 

@@ -22,7 +22,10 @@ export type AuthStackParamList = {
     expiredError?: boolean;
   };
   ResetLinkSent: { email: string };
-  NewPassword: { email: string; token: string };
+  /** Reached only via the reset-password deep link, which carries just a
+   * token — the email isn't known until POST /auth/reset-password succeeds
+   * (see store/auth/authSlice.ts's resetPasswordEmail). */
+  NewPassword: { token: string };
 };
 
 /**

@@ -1,6 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<!--
+	Universal Links (com.apple.developer.associated-domains) belong here too,
+	once two things exist: the Apple Developer Program membership
+	(CLIENT_REQUIREMENTS.md #2) so the App ID can have the Associated Domains
+	capability enabled in the first place, and the real domain
+	(CLIENT_REQUIREMENTS.md #5, config/deepLinkConfig.ts's APP_LINK_HOST)
+	hosting /.well-known/apple-app-site-association over HTTPS. Deliberately
+	not added yet: an entitlement Xcode can't match to an enabled capability
+	on the signing account risks a local build failure, for a feature that
+	can't function until both of those exist anyway. When ready, add:
+		<key>com.apple.developer.associated-domains</key>
+		<array>
+			<string>applinks:lifefull.app</string>
+		</array>
+	(matching APP_LINK_HOST exactly) and enable the capability on the App ID
+	in the Apple Developer portal first.
+-->
 <dict>
 	<key>com.apple.developer.applesignin</key>
 	<array>

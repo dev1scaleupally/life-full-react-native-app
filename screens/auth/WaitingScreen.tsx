@@ -66,7 +66,7 @@ export function WaitingScreen({
         >
           <Icon name={icon} size={28} color={isAlert ? c.danger : c.brandPrimary} />
         </View>
-        <Heading level="h2" className="text-center">
+        <Heading level="h2" className={`text-center ${isAlert ? 'text-danger' : ''}`}>
           {headline}
         </Heading>
         {body}

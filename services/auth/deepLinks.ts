@@ -1,20 +1,48 @@
 /**
- * Parses and routes the two auth deep links:
- *   lifefull://verify-email?token=...
- *   lifefull://reset-password?token=...
+ * Parses and routes the two auth deep links, in either of two forms:
+ *   lifefull://verify-email?token=...                      (custom scheme —
+ *   lifefull://reset-password?token=...                      always works, no
+ *                                                             domain needed;
+ *                                                             what local
+ *                                                             dev/testing
+ *                                                             should keep
+ *                                                             using)
+ *   https://<APP_LINK_HOST>/v1/auth/verify-email?token=...  (App Link —
+ *   https://<APP_LINK_HOST>/v1/auth/reset-password?token=... only opens the
+ *                                                             app directly
+ *                                                             once
+ *                                                             APP_LINK_HOST
+ *                                                             is verified;
+ *                                                             see
+ *                                                             deepLinkConfig.ts)
+ * The App Link path deliberately mirrors the backend's own route
+ * (mailer.service.ts builds exactly this URL for the real email) rather than
+ * a shorter made-up one — so the same link both opens the app on Android
+ * once verified, AND still renders a working page if it falls through to a
+ * browser instead (GET /v1/auth/verify-email already exists server-side).
+ *
+ * Both forms are accepted indefinitely, not just during a migration window —
+ * the custom scheme is a legitimate fallback (e.g. a desktop mail client
+ * that can't verify App Links) even once App Links are verified.
  *
  * Deliberately hand-rolled instead of relying on the global `URL`/
  * `URLSearchParams` — not guaranteed present on every RN version — since the
- * shape here (custom scheme, one query param) is trivial to parse directly.
+ * shape here (one query param) is trivial to parse directly.
  */
+import { APP_LINK_HOST } from '../../config/deepLinkConfig';
 import { navigationRef } from '../../navigation/navigationRef';
 import { authApi } from '../api/authApi';
 import { ApiError } from '../api/types';
 import { store } from '../../store';
 import { authActions } from '../../store/auth/authSlice';
-import { validateResetToken } from './authService';
 
 export type ParsedAuthLink = { type: 'verify' | 'reset'; token: string } | null;
+
+const CUSTOM_SCHEME_PATTERN = /^lifefull:\/\/([a-z-]+)\??(.*)$/i;
+const APP_LINK_PATTERN = new RegExp(
+  `^https://${APP_LINK_HOST.replace(/\./g, '\\.')}/v1/auth/([a-z-]+)\\??(.*)$`,
+  'i',
+);
 
 function readTokenParam(query: string): string | null {
   for (const pair of query.split('&')) {
@@ -26,13 +54,15 @@ function readTokenParam(query: string): string | null {
 }
 
 export function parseAuthDeepLink(url: string): ParsedAuthLink {
-  const match = url.match(/^lifefull:\/\/([a-z-]+)\??(.*)$/i);
+  const match = url.match(CUSTOM_SCHEME_PATTERN) ?? url.match(APP_LINK_PATTERN);
   if (!match) return null;
-  const [, host, query] = match;
+  const [, path, query] = match;
   const token = readTokenParam(query ?? '');
   if (!token) return null;
-  if (host === 'verify-email') return { type: 'verify', token };
-  if (host === 'reset-password') return { type: 'reset', token };
+  // Same final path segment either way — 'verify-email'/'reset-password' —
+  // whether it came from the custom scheme's host or the App Link's route.
+  if (path === 'verify-email') return { type: 'verify', token };
+  if (path === 'reset-password') return { type: 'reset', token };
   return null;
 }
 
@@ -65,11 +95,9 @@ export async function handleAuthDeepLink(url: string): Promise<void> {
     return;
   }
 
-  const result = await validateResetToken(parsed.token);
-  if (!result) return;
-  if (result.expired) {
-    navigationRef.navigate('ForgotPassword', { email: result.email, expiredError: true });
-  } else {
-    navigationRef.navigate('NewPassword', { email: result.email, token: parsed.token });
-  }
+  // No pre-validation step (the backend has no "check without consuming"
+  // route, same as verify-email) — go straight to the form and let the
+  // actual POST /auth/reset-password submit reveal an expired/invalid token,
+  // same as EmailVerifyScreen does for its own deep link.
+  navigationRef.navigate('NewPassword', { token: parsed.token });
 }

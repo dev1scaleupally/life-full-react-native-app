@@ -9,14 +9,12 @@
  * this module, never touch AsyncStorage directly.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { AuthAccount, AuthProvider, AuthResult, SubscriptionStatus } from './types';
+import type { AuthAccount, AuthResult } from './types';
 
 const ACCOUNTS_KEY = 'lf_mock_accounts';
 const VERIFY_TOKENS_KEY = 'lf_mock_verify_tokens';
-const RESET_TOKENS_KEY = 'lf_mock_reset_tokens';
 
 const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h, per EmailVerify's expired-link state
-const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1h, per ResetLinkSent's copy
 
 type StoredAccount = AuthAccount & { password: string };
 type TokenEntry = { email: string; issuedAt: number };
@@ -92,31 +90,10 @@ export async function signInWithEmail(opts: {
   return { ok: true, account: toPublicAccount(account) };
 }
 
-export async function upsertOAuthAccount(opts: {
-  provider: Extract<AuthProvider, 'google' | 'apple'>;
-  email: string;
-  firstName: string;
-  lastName: string;
-}): Promise<AuthResult> {
-  await delay(400);
-  const email = opts.email.trim().toLowerCase();
-  const accounts = await readAccounts();
-  let account = accounts.find(a => a.email === email);
-  if (!account) {
-    account = {
-      id: makeToken(),
-      email,
-      firstName: opts.firstName,
-      lastName: opts.lastName,
-      emailVerified: true, // the provider already verified the address
-      subscriptionStatus: 'never_subscribed' as SubscriptionStatus,
-      provider: opts.provider,
-      password: '',
-    };
-    await writeAccounts([...accounts, account]);
-  }
-  return { ok: true, account: toPublicAccount(account) };
-}
+// upsertOAuthAccount (google/apple) used to live here too — AccountGateScreen
+// now dispatches the real googleLoginRequested/appleLoginRequested actions
+// for both providers (see store/auth/authSaga.ts), so this was removed
+// rather than left as dead code once nothing imported it anymore.
 
 /** (Re)sends the verification link. Used both on signup and on EmailVerify's resend. */
 export async function sendVerificationEmail(email: string): Promise<void> {
@@ -153,48 +130,8 @@ export async function completeEmailVerification(token: string): Promise<Complete
   return { email: entry.email, expired };
 }
 
-/** Always does the same work either way — never reveal whether the address has an account. */
-export async function requestPasswordReset(email: string): Promise<void> {
-  const normalized = email.trim().toLowerCase();
-  const accounts = await readAccounts();
-  if (accounts.some(a => a.email === normalized)) {
-    const tokens = await readTokens(RESET_TOKENS_KEY);
-    const token = makeToken();
-    tokens[token] = { email: normalized, issuedAt: Date.now() };
-    await writeTokens(RESET_TOKENS_KEY, tokens);
-    const link = `lifefull://reset-password?token=${token}`;
-    // TODO: wire a real transactional email provider — see the note in
-    // sendVerificationEmail above.
-    console.log('[mock email] password reset link for', normalized, '->', link);
-  }
-}
-
-export type ValidateResetTokenResult = { email: string; expired: boolean } | null;
-
-/** Read-only check used by the deep-link handler to route to NewPassword vs. an expired state. */
-export async function validateResetToken(token: string): Promise<ValidateResetTokenResult> {
-  const tokens = await readTokens(RESET_TOKENS_KEY);
-  const entry = tokens[token];
-  if (!entry) return null;
-  return { email: entry.email, expired: Date.now() - entry.issuedAt > RESET_TOKEN_TTL_MS };
-}
-
-export type CompletePasswordResetResult = { ok: true } | { ok: false };
-
-/** Consumes the token and sets the new password. Called from NewPasswordScreen's submit. */
-export async function completePasswordReset(
-  token: string,
-  newPassword: string,
-): Promise<CompletePasswordResetResult> {
-  const tokens = await readTokens(RESET_TOKENS_KEY);
-  const entry = tokens[token];
-  if (!entry || Date.now() - entry.issuedAt > RESET_TOKEN_TTL_MS) return { ok: false };
-  const accounts = await readAccounts();
-  const idx = accounts.findIndex(a => a.email === entry.email);
-  if (idx < 0) return { ok: false };
-  accounts[idx] = { ...accounts[idx], password: newPassword };
-  await writeAccounts(accounts);
-  delete tokens[token];
-  await writeTokens(RESET_TOKENS_KEY, tokens);
-  return { ok: true };
-}
+// Password reset (requestPasswordReset/validateResetToken/completePasswordReset)
+// used to live here too, but that flow now calls the real
+// POST /auth/forgot-password and POST /auth/reset-password (see
+// services/api/authApi.ts, store/auth/authSaga.ts) — removed rather than
+// left as dead code once nothing imported them anymore.

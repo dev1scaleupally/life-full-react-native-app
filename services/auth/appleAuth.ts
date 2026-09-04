@@ -7,7 +7,9 @@
  *   2. In Xcode: target > Signing & Capabilities > add "Sign In with Apple".
  *
  * Apple only ever returns the user's name/email on the FIRST authorization —
- * upsertOAuthAccount persists it then, since later sign-ins won't repeat it.
+ * POST /auth/apple persists it then, since later sign-ins won't repeat it
+ * (see AccountGateScreen's handleOAuth, which drops empty strings back to
+ * undefined rather than passing them as if they were real).
  */
 import { Platform } from 'react-native';
 import appleAuth from '@invertase/react-native-apple-authentication';

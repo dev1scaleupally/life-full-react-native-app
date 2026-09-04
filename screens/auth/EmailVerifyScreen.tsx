@@ -71,8 +71,9 @@ export function EmailVerifyScreen({ route, navigation }: Props) {
       body={
         expired ? (
           <BodyText className="text-center">
-            Send a new link to{' '}
-            <BodyText className="font-sans-bold text-text-heading">{email}</BodyText> to keep going.
+            Verification links last 24 hours. Send a fresh one to{' '}
+            <BodyText className="font-sans-bold text-text-heading">{email}</BodyText> and tap it to
+            finish setting up.
           </BodyText>
         ) : (
           <BodyText className="text-center">

@@ -21,11 +21,45 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- Custom scheme — always works, no domain needed. Keep this even
+             once the App Link below is verified: it's what local dev/testing
+             should keep using (`adb shell am start -a android.intent.action.VIEW
+             -d "lifefull://verify-email?token=..."`), and a legitimate
+             fallback afterward too. -->
         <intent-filter android:autoVerify="false">
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.DEFAULT" />
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="lifefull" />
+        </intent-filter>
+        <!-- App Link — opens the app directly instead of a chooser, but ONLY
+             once android:host below has /.well-known/assetlinks.json hosted
+             on it (over HTTPS, this exact app's package name + signing cert
+             SHA-256) and Android has verified the association (checked at
+             install time). Until then this filter is harmless but inert:
+             Android just can't verify it, so links to this host fall back to
+             a normal browser/chooser — which, for verify-email, still lands
+             on a real page, since GET /v1/auth/verify-email already renders
+             one server-side. Pointed at the dev API domain for now (matches
+             config/apiConfig.ts's API_BASE_URL) rather than waiting on the
+             client's domain (docs/CLIENT_REQUIREMENTS.md #5) — swap
+             android:host + config/deepLinkConfig.ts's APP_LINK_HOST together
+             when that domain exists; they must match exactly. Paths mirror
+             the backend's actual routes (mailer.service.ts's `link` — see
+             services/auth/deepLinks.ts's APP_LINK_PATTERN comment) rather
+             than a made-up shorter path, specifically so this same URL can
+             double as both the App Link target and the working browser
+             fallback. -->
+        <intent-filter android:autoVerify="true">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https"
+                  android:host="lifefull-apis-dev.scaleupdevops.in"
+                  android:pathPrefix="/v1/auth/verify-email" />
+            <data android:scheme="https"
+                  android:host="lifefull-apis-dev.scaleupdevops.in"
+                  android:pathPrefix="/v1/auth/reset-password" />
         </intent-filter>
       </activity>
     </application>

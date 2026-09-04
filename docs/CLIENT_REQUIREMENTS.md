@@ -1,6 +1,6 @@
 # What We Need From You
 
-Status as of 2026-08-27. Four things, each with what it's for and how to generate it.
+Status as of 2026-09-04. Five things, each with what it's for and how to generate it.
 
 ---
 
@@ -54,3 +54,19 @@ branding, revocation) rather than it living under a developer's personal account
 1. Pick a transactional email provider — e.g. [SES](https://aws.amazon.com/ses/) (cheapest if you're already on AWS), [SendGrid](https://sendgrid.com), or [Postmark](https://postmarkapp.com) (good deliverability, simple setup).
 2. Create an account under your ownership, verify a sending domain you control (adds DKIM/SPF/DMARC DNS records to your domain — needed so emails don't land in spam).
 3. Generate SMTP credentials or an API key from the provider's dashboard, and send us the host/port/username/password (or API key) plus the "from" address to send as (e.g. `no-reply@yourdomain.com`).
+
+---
+
+## 5. A domain you own
+
+**For:** making the account-verification and password-reset email links open the app directly (an **App Link** on Android, a **Universal Link** on iOS) instead of a generic `lifefull://` link a browser or another app could intercept. Likely the same domain as #4 above (SMTP) — if you already have one for sending mail, that one works here too; no need for a second.
+
+Until this exists, the app keeps working exactly as it does today (a `lifefull://` custom link scheme) — this only unlocks the more secure, standard version. Worth sorting early: getting App Links verified on Android in particular tends to take a round or two of debugging once it's in place, so it's better not left until the last week before launch.
+
+**How to generate / what we need from it:**
+1. Any domain you control the DNS for (a subdomain like `app.yourdomain.com` is fine — doesn't need to be the marketing site's root domain).
+2. We'll need to host two small files on it over HTTPS, exactly as-is, no redirects:
+   - `/.well-known/assetlinks.json` (Android — proves your app and this domain belong to the same organization)
+   - `/.well-known/apple-app-site-association` (iOS — same idea; this one can wait until #2's Apple Developer account exists, since it needs your Apple Team ID)
+3. Either give us DNS/hosting access to add these two files ourselves, or tell us where to send the file contents for your team to publish.
+4. Send us the domain name once decided, so we can update the app's configuration (`config/deepLinkConfig.ts`) and the backend's email templates to point at it.

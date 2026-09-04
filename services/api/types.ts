@@ -54,6 +54,15 @@ export type RegisterInput = {
 
 export type VerifyEmailResult = { ok: true; email: string };
 
+export type ForgotPasswordInput = { email: string };
+
+export type ResetPasswordInput = { token: string; password: string };
+
+/** POST /auth/reset-password's success payload — echoes the email back so
+ * the app can prefill the sign-in screen afterward, same idea as
+ * VerifyEmailResult above. */
+export type ResetPasswordResult = { ok: true; email: string };
+
 export type GoogleLoginInput = { idToken: string };
 
 export type AppleLoginInput = {
