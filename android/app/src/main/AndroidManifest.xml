@@ -1,9 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Google Play Billing (react-native-iap). Play Console reads this out of the
-         uploaded bundle before it will let subscriptions be created for the app. -->
-    <uses-permission android:name="com.android.vending.BILLING" />
 
     <application
       android:name=".MainApplication"
@@ -41,28 +38,31 @@
              SHA-256) and Android has verified the association (checked at
              install time). Until then this filter is harmless but inert:
              Android just can't verify it, so links to this host fall back to
-             a normal browser/chooser — which, for verify-email, still lands
-             on a real page, since GET /v1/auth/verify-email already renders
-             one server-side. Pointed at the dev API domain for now (matches
+             a normal browser/chooser. Paths are bare root paths — /verify and
+             /reset-password, NOT /v1/auth/... — confirmed against the
+             backend's actual mailer.service.ts + main.ts (2026-09-05): both
+             are deliberately excluded from the API's /v1 prefix specifically
+             so the app can claim them as App Link paths. /verify has a real
+             GET page behind it (VerifyController) so that one genuinely
+             double-duties as a browser fallback too; /reset-password does
+             NOT yet (mailer.service.ts's own comment: the app "eventually
+             claims" it — no browser-facing controller exists for it yet, so
+             tapping this link without the app installed currently 404s).
+             Pointed at the dev API domain for now (matches
              config/apiConfig.ts's API_BASE_URL) rather than waiting on the
              client's domain (docs/CLIENT_REQUIREMENTS.md #5) — swap
              android:host + config/deepLinkConfig.ts's APP_LINK_HOST together
-             when that domain exists; they must match exactly. Paths mirror
-             the backend's actual routes (mailer.service.ts's `link` — see
-             services/auth/deepLinks.ts's APP_LINK_PATTERN comment) rather
-             than a made-up shorter path, specifically so this same URL can
-             double as both the App Link target and the working browser
-             fallback. -->
+             when that domain exists; they must match exactly. -->
         <intent-filter android:autoVerify="true">
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.DEFAULT" />
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https"
                   android:host="lifefull-apis-dev.scaleupdevops.in"
-                  android:pathPrefix="/v1/auth/verify-email" />
+                  android:pathPrefix="/verify" />
             <data android:scheme="https"
                   android:host="lifefull-apis-dev.scaleupdevops.in"
-                  android:pathPrefix="/v1/auth/reset-password" />
+                  android:pathPrefix="/reset-password" />
         </intent-filter>
       </activity>
     </application>

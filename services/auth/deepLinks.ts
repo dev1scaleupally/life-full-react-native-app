@@ -1,25 +1,25 @@
 /**
  * Parses and routes the two auth deep links, in either of two forms:
- *   lifefull://verify-email?token=...                      (custom scheme —
- *   lifefull://reset-password?token=...                      always works, no
- *                                                             domain needed;
- *                                                             what local
- *                                                             dev/testing
- *                                                             should keep
- *                                                             using)
- *   https://<APP_LINK_HOST>/v1/auth/verify-email?token=...  (App Link —
- *   https://<APP_LINK_HOST>/v1/auth/reset-password?token=... only opens the
- *                                                             app directly
- *                                                             once
- *                                                             APP_LINK_HOST
- *                                                             is verified;
- *                                                             see
- *                                                             deepLinkConfig.ts)
- * The App Link path deliberately mirrors the backend's own route
- * (mailer.service.ts builds exactly this URL for the real email) rather than
- * a shorter made-up one — so the same link both opens the app on Android
- * once verified, AND still renders a working page if it falls through to a
- * browser instead (GET /v1/auth/verify-email already exists server-side).
+ *   lifefull://verify-email?token=...                (custom scheme — always
+ *   lifefull://reset-password?token=...                works, no domain
+ *                                                       needed; what local
+ *                                                       dev/testing should
+ *                                                       keep using)
+ *   https://<APP_LINK_HOST>/verify?token=...          (App Link — only opens
+ *   https://<APP_LINK_HOST>/reset-password?token=...   the app directly once
+ *                                                       APP_LINK_HOST is
+ *                                                       verified; see
+ *                                                       deepLinkConfig.ts)
+ * The App Link paths are deliberately bare root paths (no /v1/auth/ prefix)
+ * — confirmed against the backend's actual mailer.service.ts + main.ts
+ * (2026-09-05): both are excluded from the API's own /v1 prefix specifically
+ * so the app can claim them as App Link paths, matching what the backend
+ * literally emails. /verify has a real browser-facing GET page behind it
+ * (VerifyController) so that one double-duties as a working fallback when
+ * App Links aren't verified; /reset-password does NOT yet (no equivalent
+ * controller exists server-side — mailer.service.ts's own comment says the
+ * app "eventually claims" that path, implying the page isn't built yet), so
+ * for now that link 404s in a plain browser and only works via the app.
  *
  * Both forms are accepted indefinitely, not just during a migration window —
  * the custom scheme is a legitimate fallback (e.g. a desktop mail client
@@ -40,7 +40,7 @@ export type ParsedAuthLink = { type: 'verify' | 'reset'; token: string } | null;
 
 const CUSTOM_SCHEME_PATTERN = /^lifefull:\/\/([a-z-]+)\??(.*)$/i;
 const APP_LINK_PATTERN = new RegExp(
-  `^https://${APP_LINK_HOST.replace(/\./g, '\\.')}/v1/auth/([a-z-]+)\\??(.*)$`,
+  `^https://${APP_LINK_HOST.replace(/\./g, '\\.')}/([a-z-]+)\\??(.*)$`,
   'i',
 );
 
@@ -59,9 +59,10 @@ export function parseAuthDeepLink(url: string): ParsedAuthLink {
   const [, path, query] = match;
   const token = readTokenParam(query ?? '');
   if (!token) return null;
-  // Same final path segment either way — 'verify-email'/'reset-password' —
-  // whether it came from the custom scheme's host or the App Link's route.
-  if (path === 'verify-email') return { type: 'verify', token };
+  // 'verify-email' is the custom scheme's host name; 'verify' is the App
+  // Link's bare route (matches VerifyController's real @Controller('verify'))
+  // — both mean the same thing. 'reset-password' is identical in both forms.
+  if (path === 'verify-email' || path === 'verify') return { type: 'verify', token };
   if (path === 'reset-password') return { type: 'reset', token };
   return null;
 }
@@ -97,7 +98,7 @@ export async function handleAuthDeepLink(url: string): Promise<void> {
 
   // No pre-validation step (the backend has no "check without consuming"
   // route, same as verify-email) — go straight to the form and let the
-  // actual POST /auth/reset-password submit reveal an expired/invalid token,
+  // actual POST /auth/update-password submit reveal an expired/invalid token,
   // same as EmailVerifyScreen does for its own deep link.
   navigationRef.navigate('NewPassword', { token: parsed.token });
 }

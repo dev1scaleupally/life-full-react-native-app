@@ -90,6 +90,13 @@ export function AccountGateScreen({ route, navigation }: Props) {
       } catch (err) {
         setOauthBusy(null);
         if (isUserCancelledGoogleSignIn(err)) return;
+        // Was previously swallowed silently into just the on-screen banner —
+        // logging the real native error/code here since "We couldn't
+        // complete Google sign-in" alone gives no way to tell a config issue
+        // (e.g. this build's signing cert SHA-1 not registered against the
+        // OAuth client in Google Cloud Console — the classic DEVELOPER_ERROR,
+        // code 10) apart from an actual network/account problem.
+        console.error('[AccountGateScreen] Google sign-in error:', err);
         const message = err instanceof Error ? err.message : '';
         setOauthError(
           message.includes('not configured yet')

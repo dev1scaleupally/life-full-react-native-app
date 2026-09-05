@@ -56,12 +56,18 @@ export type VerifyEmailResult = { ok: true; email: string };
 
 export type ForgotPasswordInput = { email: string };
 
-export type ResetPasswordInput = { token: string; password: string };
+/** POST /v1/auth/update-password — field is `newPassword`, not `password`
+ * (confirmed against the real backend route; this is NOT `/auth/reset-password`,
+ * which doesn't exist — the actual path is `/auth/update-password`). */
+export type ResetPasswordInput = { token: string; newPassword: string };
 
-/** POST /auth/reset-password's success payload — echoes the email back so
- * the app can prefill the sign-in screen afterward, same idea as
- * VerifyEmailResult above. */
-export type ResetPasswordResult = { ok: true; email: string };
+/** POST /auth/update-password's success payload — unlike VerifyEmailResult,
+ * this does NOT echo the email back (confirmed against auth.service.ts:
+ * `updatePassword` returns bare `{ ok: true }`), and neither does its 410
+ * expired-token response (unlike verify-email's, which does). So the
+ * sign-in screen can't be prefilled with the email after a reset — see
+ * NewPasswordScreen's post-success navigation. */
+export type ResetPasswordResult = { ok: true };
 
 export type GoogleLoginInput = { idToken: string };
 
@@ -127,15 +133,31 @@ export type BasicProfile = {
   primaryReasonOther: string | null;
 };
 
-/** GET /v1/auth/me — the account's identity plus everything from
- * BasicProfile, defaulted (not merely absent) even before onboarding is
- * ever submitted, per auth.service.ts:100. */
-export type MeResponse = {
+/** GET /v1/profile — the signed-in user's own core account details.
+ * Confirmed against the live backend (profile.repo.ts's PROFILE_COLUMNS,
+ * 2026-09-05): this does NOT carry any BasicProfile fields (no ageRange,
+ * careerField, retirementStatus, etc.) — those live only in the onboarding
+ * submission, not on this endpoint. There is no GET /v1/auth/me; that
+ * route doesn't exist on the backend. */
+export type Profile = {
   id: string;
-  lastName: string;
   email: string;
-  emailVerified: boolean;
-} & BasicProfile;
+  firstName: string;
+  lastName: string;
+  timezone: string | null;
+  /** Null until the account verifies its email; a timestamp after. */
+  emailVerifiedAt: string | null;
+  createdAt: string;
+};
+
+/** Every /v1/profile response is wrapped in this envelope — unwrap via
+ * `.data` (see authApi.profile). */
+export type ProfileEnvelope = {
+  status: boolean;
+  message: string;
+  data: Profile;
+  errors: unknown;
+};
 
 export type OnboardingResponseEntry = {
   questionId: string;

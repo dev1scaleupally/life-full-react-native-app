@@ -29,10 +29,8 @@ export function NewPasswordScreen({ route, navigation }: Props) {
   const dispatch = useAppDispatch();
   const resetPasswordStatus = useAppSelector(state => state.auth.resetPasswordStatus);
   const resetPasswordError = useAppSelector(state => state.auth.resetPasswordError);
-  const resetPasswordEmail = useAppSelector(state => state.auth.resetPasswordEmail);
-  const resetPasswordExpiredEmail = useAppSelector(state => state.auth.resetPasswordExpiredEmail);
   // Mirrors EmailFormScreen's pendingAuthRef — dispatch is fire-and-forget,
-  // the saga does the actual POST /auth/reset-password.
+  // the saga does the actual POST /auth/update-password.
   const pendingRef = useRef(false);
 
   function validate(pw: string, confirm: string): Errors {
@@ -59,18 +57,20 @@ export function NewPasswordScreen({ route, navigation }: Props) {
     pendingRef.current = false;
     setSubmitting(false);
     if (resetPasswordStatus === 'error') {
-      if (resetPasswordExpiredEmail) {
-        // 410 — route back to ForgotPassword with the email prefilled and
-        // the expired banner, same shape as EmailVerifyScreen's 410 case.
-        navigation.replace('ForgotPassword', { email: resetPasswordExpiredEmail, expiredError: true });
-      } else {
-        console.error('[NewPasswordScreen] reset-password API error:', resetPasswordError);
-        setBanner(resetPasswordError ?? "That link isn't valid anymore. Request a new one from the sign-in screen.");
-      }
-    } else if (resetPasswordStatus === 'success' && resetPasswordEmail) {
+      // Covers invalid link (400), expired link (410), and "must differ from
+      // current password" (400) alike — the backend's own message is
+      // user-appropriate for all three. No email is ever available from
+      // this endpoint (unlike verify-email's 410), so there's nowhere
+      // useful to navigate on failure — just show it inline.
+      console.error('[NewPasswordScreen] update-password API error:', resetPasswordError);
+      setBanner(resetPasswordError ?? "That link isn't valid anymore. Request a new one from the sign-in screen.");
+    } else if (resetPasswordStatus === 'success') {
+      // No email comes back from this endpoint either, so the sign-in
+      // screen's email field is left for the user to fill in themselves —
+      // matches the design spec's own sign-in-after-reset screen exactly.
       navigation.reset({
         index: 0,
-        routes: [{ name: 'EmailForm', params: { mode: 'signin', email: resetPasswordEmail, resetBanner: true } }],
+        routes: [{ name: 'EmailForm', params: { mode: 'signin', resetBanner: true } }],
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -84,7 +84,7 @@ export function NewPasswordScreen({ route, navigation }: Props) {
 
     setSubmitting(true);
     pendingRef.current = true;
-    dispatch(authActions.resetPasswordRequested({ token, password }));
+    dispatch(authActions.resetPasswordRequested({ token, newPassword: password }));
   }
 
   const isComplete = password.length > 0 && confirmPassword.length > 0;

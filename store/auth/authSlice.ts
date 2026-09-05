@@ -25,16 +25,15 @@ export type AuthState = {
   forgotPasswordError: string | null;
 
   resetPasswordStatus: 'idle' | 'loading' | 'success' | 'error';
+  // Unlike verify-email, POST /auth/update-password never echoes the email
+  // back — not on success, not on its 410 expired case (confirmed against
+  // auth.service.ts) — so there's no address to carry forward here. Any
+  // "which email got reset" UX (prefilling sign-in, routing an expired link
+  // back to ForgotPassword with the address filled in) simply isn't
+  // possible against this endpoint; resetPasswordError covers every failure
+  // case (invalid link, expired link, same-password-as-before) with the
+  // backend's own message.
   resetPasswordError: string | null;
-  /** Set on a successful reset — the only way the screen learns which
-   * address to prefill the sign-in screen with, since NewPassword's route
-   * carries just a token (see deepLinks.ts). */
-  resetPasswordEmail: string | null;
-  /** Set instead of resetPasswordError specifically when the token had
-   * expired (410) — lets the screen route back to ForgotPassword with the
-   * email prefilled rather than just showing a banner, mirroring
-   * EmailVerifyScreen's 410 handling. */
-  resetPasswordExpiredEmail: string | null;
 };
 
 const initialState: AuthState = {
@@ -52,8 +51,6 @@ const initialState: AuthState = {
   forgotPasswordError: null,
   resetPasswordStatus: 'idle',
   resetPasswordError: null,
-  resetPasswordEmail: null,
-  resetPasswordExpiredEmail: null,
 };
 
 export const authSlice = createSlice({
@@ -160,23 +157,20 @@ export const authSlice = createSlice({
       state.forgotPasswordError = action.payload.message;
     },
 
-    resetPasswordRequested: (state, _action: PayloadAction<{ token: string; password: string }>) => {
+    resetPasswordRequested: (state, _action: PayloadAction<{ token: string; newPassword: string }>) => {
       state.resetPasswordStatus = 'loading';
       state.resetPasswordError = null;
-      state.resetPasswordExpiredEmail = null;
     },
-    resetPasswordSucceeded: (state, action: PayloadAction<{ email: string }>) => {
+    resetPasswordSucceeded: state => {
       state.resetPasswordStatus = 'success';
-      state.resetPasswordEmail = action.payload.email;
     },
+    // Covers every failure the backend can send for this endpoint — invalid
+    // link (400), already-expired link (410), and "must differ from current
+    // password" (400) — the backend's own message is user-appropriate for
+    // all three, no special-casing needed.
     resetPasswordFailed: (state, action: PayloadAction<{ message: string }>) => {
       state.resetPasswordStatus = 'error';
       state.resetPasswordError = action.payload.message;
-    },
-    /** The 410 case specifically — see resetPasswordExpiredEmail's comment above. */
-    resetPasswordExpired: (state, action: PayloadAction<{ email: string }>) => {
-      state.resetPasswordStatus = 'error';
-      state.resetPasswordExpiredEmail = action.payload.email;
     },
   },
 });

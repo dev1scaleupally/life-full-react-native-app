@@ -3,7 +3,6 @@ import type {
   AppleLoginInput,
   AuthSession,
   GoogleLoginInput,
-  MeResponse,
   RegisterInput,
   ResetPasswordResult,
   TokenPair,
@@ -14,10 +13,10 @@ export const authApi = {
   register: (input: RegisterInput) =>
     httpClient.post<AuthSession>('/auth/register', input).then(res => res.data),
 
-  /** The account's name/email plus its full BasicProfile — see App.tsx's
-   * loadProfileFromServer, the only caller (a returning sign-in has no
-   * other way to learn the signed-in account's name or "About You"). */
-  me: () => httpClient.get<MeResponse>('/auth/me').then(res => res.data),
+  // There is no GET /auth/me — that route never existed on the real
+  // backend (confirmed 2026-09-05). The equivalent is profileApi.get(),
+  // GET /v1/profile, which is a different endpoint under a different
+  // module for a reason: it's account/profile data, not an auth concern.
 
   login: (email: string, password: string) =>
     httpClient.post<AuthSession>('/auth/login', { email, password }).then(res => res.data),
@@ -36,8 +35,12 @@ export const authApi = {
   forgotPassword: (email: string) =>
     httpClient.post<{ ok: true }>('/auth/forgot-password', { email }).then(res => res.data),
 
-  resetPassword: (token: string, password: string) =>
-    httpClient.post<ResetPasswordResult>('/auth/reset-password', { token, password }).then(res => res.data),
+  /** Real path is /auth/update-password, not /auth/reset-password — and the
+   * field is `newPassword`, not `password` (confirmed against the live
+   * backend's OpenAPI spec + auth.service.ts, 2026-09-05). Also enforces
+   * "new password must differ from the current one" as a 400. */
+  resetPassword: (token: string, newPassword: string) =>
+    httpClient.post<ResetPasswordResult>('/auth/update-password', { token, newPassword }).then(res => res.data),
 
   google: (input: GoogleLoginInput) =>
     httpClient.post<AuthSession>('/auth/google', input).then(res => res.data),

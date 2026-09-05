@@ -27,8 +27,8 @@ import { navigationRef } from './navigation/navigationRef';
 import { RootNavigator } from './navigation/RootNavigator';
 import type { AuthMode } from './navigation/types';
 import { PaywallScreen } from './screens/paywall/PaywallScreen';
-import { authApi } from './services/api/authApi';
 import { progressApi } from './services/api/progressApi';
+import { profileApi } from './services/api/profileApi';
 import { ApiError, type DomainId, type OnboardingResponseEntry } from './services/api/types';
 import { handleAuthDeepLink, parseAuthDeepLink } from './services/auth/deepLinks';
 import type { AuthAccount } from './services/auth/types';
@@ -360,10 +360,12 @@ function AppShell() {
       }
       // A restored session doesn't tell us whether this user ever finished
       // onboarding — loadProfileFromServer is the thing that actually
-      // knows. Progress found -> straight to Home, not Profile; incomplete
-      // -> Welcome, not straight into IntroScreen — opening the app should
-      // never drop the user into the middle of onboarding unannounced.
-      loadProfileFromServer(cachedFirstName, 'main', 'welcome');
+      // knows. Progress found -> straight to Home. Incomplete -> straight
+      // into IntroScreen, not Welcome: a logged-in user who never finished
+      // onboarding should pick up where they left off on every relaunch,
+      // not get routed back through the pre-signup marketing screen they're
+      // already past.
+      loadProfileFromServer(cachedFirstName, 'main', 'intro');
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bootstrapped, isAuthenticated]);
@@ -404,19 +406,34 @@ function AppShell() {
   function loadProfileFromServer(
     fallbackFirstName?: string,
     landOn: 'profile' | 'main' = 'profile',
-    // Where the 409 "onboarding not completed" case below sends the user.
-    // The app-launch/session-restore call site wants 'welcome' — opening
-    // the app should never drop straight into IntroScreen unannounced, only
-    // ever from Welcome's own "Get started". Every other caller (a fresh
-    // interactive sign-in, or Home/Settings' Profile icon) is already
-    // well past Welcome, so 'intro' is still the right landing there.
+    // Where the 409 "onboarding not completed" case below sends the user —
+    // every caller wants 'intro' (the default): a logged-in user who never
+    // finished onboarding should resume it directly on every entry point
+    // (app relaunch, a fresh interactive sign-in, Home/Settings' Profile
+    // icon), never get routed back through Welcome's pre-signup screen.
     onIncomplete: 'welcome' | 'intro' = 'intro',
   ) {
-    // GET /v1/auth/me now carries the account's name + full BasicProfile
-    // (see services/api/authApi.ts) — run alongside GET /progress rather
-    // than after it, since neither depends on the other.
-    return Promise.all([progressApi.get(), authApi.me()])
-      .then(([progress, me]) => {
+    // GET /v1/profile carries the account's core name/email (there is no
+    // GET /v1/auth/me — that route never existed on the real backend) —
+    // fetched alongside GET /progress since neither depends on the other,
+    // but NOT via Promise.all: that would reject the whole load (and strand
+    // the user on whatever screen they were on) if /profile fails for any
+    // reason, even though /progress — the data this function actually can't
+    // proceed without — came back fine. /profile is treated as best-effort:
+    // its failure degrades firstName to a fallback, it never blocks landing
+    // on `landOn` with real progress data.
+    //
+    // Unlike the old (aspirational, never-real) GET /auth/me, /v1/profile
+    // carries no BasicProfile fields at all (no ageRange/careerField/
+    // retirementStatus/etc. — confirmed against profile.repo.ts's
+    // PROFILE_COLUMNS) — that data lives only in the onboarding submission,
+    // not on this endpoint. So subtitle/aboutYou below are always null for
+    // now; there's currently no backend source for them post-onboarding.
+    return Promise.all([progressApi.get(), profileApi.get().catch((err: unknown) => {
+      console.error('[App] GET /profile failed (non-blocking):', err);
+      return null;
+    })])
+      .then(([progress, profile]) => {
         const overall = progress.overallWellbeing.at(-1);
         const overallBaseline = progress.overallWellbeing.length > 1 ? progress.overallWellbeing[0] : null;
         const cognitive = progress.cognitiveAlignment.at(-1);
@@ -426,9 +443,9 @@ function AppShell() {
         setProfileData({
           // fallbackFirstName covers the bootstrap-restore call, made before
           // its own setAuthAccount(cached) has actually re-rendered yet;
-          // me.firstName is the real, authoritative value either way.
-          firstName: me.firstName || fallbackFirstName || authAccount?.firstName || '',
-          subtitle: buildSubtitle(me),
+          // profile?.firstName is the real, authoritative value when available.
+          firstName: profile?.firstName || fallbackFirstName || authAccount?.firstName || '',
+          subtitle: null,
           currentDomain: computePriorityOrder(domainScores)[0]!,
           overallScore: overall.score,
           overallBand: overall.band,
@@ -445,7 +462,7 @@ function AppShell() {
               baselineScore: baseline?.score ?? null,
             };
           }),
-          aboutYou: buildAboutYou(me),
+          aboutYou: null,
         });
         setScreen(landOn);
       })

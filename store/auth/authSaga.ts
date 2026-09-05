@@ -8,7 +8,6 @@ import {
   type AuthSession,
   type GoogleLoginInput,
   type RegisterInput,
-  type ResetPasswordResult,
 } from '../../services/api/types';
 import { authActions } from './authSlice';
 
@@ -132,22 +131,15 @@ function* handleForgotPassword(action: PayloadAction<{ email: string }>) {
   }
 }
 
-function* handleResetPassword(action: PayloadAction<{ token: string; password: string }>) {
+function* handleResetPassword(action: PayloadAction<{ token: string; newPassword: string }>) {
   try {
-    const result: ResetPasswordResult = yield call(
-      authApi.resetPassword,
-      action.payload.token,
-      action.payload.password,
-    );
-    yield put(authActions.resetPasswordSucceeded({ email: result.email }));
+    // Unlike verify-email's 410, this endpoint never echoes an email back —
+    // confirmed against auth.service.ts — on success or on failure. Every
+    // failure (invalid link 400, expired link 410, same-password 400) just
+    // carries the backend's own user-appropriate message.
+    yield call(authApi.resetPassword, action.payload.token, action.payload.newPassword);
+    yield put(authActions.resetPasswordSucceeded());
   } catch (err) {
-    // 410 = expired, and the backend echoes back the address it belonged to
-    // (the link itself carries only a token) — same shape as verify-email's
-    // 410, see deepLinks.ts.
-    if (err instanceof ApiError && err.statusCode === 410 && err.email) {
-      yield put(authActions.resetPasswordExpired({ email: err.email }));
-      return;
-    }
     yield put(authActions.resetPasswordFailed({ message: errorMessage(err) }));
   }
 }

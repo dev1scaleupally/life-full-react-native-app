@@ -15,7 +15,7 @@ const PUBLIC_PATHS = [
   '/auth/verify-email',
   '/auth/resend-verification',
   '/auth/forgot-password',
-  '/auth/reset-password',
+  '/auth/update-password',
   '/auth/google',
   '/auth/apple',
   '/onboarding/catalog',
